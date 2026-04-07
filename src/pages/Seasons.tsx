@@ -1,30 +1,151 @@
 import { useState } from 'react'
-import { CheckCircle2, Circle, ChevronRight } from 'lucide-react'
+import { CheckCircle2, Circle, ChevronRight, X, ArrowRight } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
 import { LIFE_AREAS, SEASONS, SEASON_ORDER } from '../lib/constants'
-import type { SeasonKey } from '../types'
+import type { SeasonKey, Milestone } from '../types'
+
+// ─── Resolution Modal ─────────────────────────────────────────────────────────
+
+function ResolutionModal({
+  milestones,
+  seasonLabel,
+  onClose,
+}: {
+  milestones: Milestone[]
+  seasonLabel: string
+  onClose: () => void
+}) {
+  const unfinished = milestones.filter((m) => m.status !== 'done')
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.8)' }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full rounded-2xl p-6 flex flex-col gap-5"
+        style={{
+          maxWidth: 480,
+          background: '#181818',
+          border: '1px solid rgba(255,255,255,0.1)',
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <p style={{ fontSize: 28, marginBottom: 4 }}>🏁</p>
+            <h2 className="text-xl font-black" style={{ color: '#F0EFEB' }}>
+              Season Complete!
+            </h2>
+            <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.36)' }}>
+              {seasonLabel} is over. Resolve unfinished milestones.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'rgba(255,255,255,0.4)' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'transparent')}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Unfinished milestones */}
+        <div className="flex flex-col gap-2.5">
+          {unfinished.length === 0 ? (
+            <div className="rounded-xl p-5 text-center" style={{ background: '#202020' }}>
+              <p style={{ fontSize: 28, marginBottom: 6 }}>🎉</p>
+              <p className="font-bold" style={{ color: '#AADF4F' }}>All milestones completed!</p>
+            </div>
+          ) : (
+            unfinished.map((ms) => {
+              const area = LIFE_AREAS[ms.lifeAreaKey]
+              return (
+                <div
+                  key={ms.id}
+                  className="rounded-xl p-4 flex items-center gap-3"
+                  style={{ background: '#202020' }}
+                >
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: area.bg, fontSize: 15 }}
+                  >
+                    {area.emoji}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate" style={{ color: '#F0EFEB' }}>
+                      {ms.title}
+                    </p>
+                    <p className="text-[11px] font-bold mt-0.5" style={{ color: area.color }}>
+                      {area.label}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={onClose}
+                      className="text-[11px] font-black px-3 py-1.5 rounded-lg transition-all"
+                      style={{ background: 'rgba(93,202,165,0.15)', color: '#5DCAA5' }}
+                    >
+                      Mark Done
+                    </button>
+                    <button
+                      onClick={onClose}
+                      className="text-[11px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all"
+                      style={{ background: 'rgba(245,197,66,0.15)', color: '#F5C542' }}
+                    >
+                      Carry Forward
+                      <ArrowRight size={12} />
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        <button
+          onClick={onClose}
+          className="w-full py-2.5 rounded-xl text-sm font-black transition-all"
+          style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Seasons Page ─────────────────────────────────────────────────────────────
 
 export function Seasons() {
   const { user, seasons } = useAppStore()
   const [activeTab, setActiveTab] = useState<SeasonKey>(user.currentSeason)
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null)
+  const [showResolutionModal, setShowResolutionModal] = useState(false)
 
   const activeSeason = seasons.find((s) => s.key === activeTab)!
   const cfg = SEASONS[activeTab]
+  const isCurrentSeason = activeTab === user.currentSeason
+
   const selectedMilestone =
     selectedMilestoneId != null
-      ? activeSeason.milestones.find((m) => m.id === selectedMilestoneId)
-      : activeSeason.milestones[0]
+      ? activeSeason.milestones.find((m) => m.id === selectedMilestoneId) ?? activeSeason.milestones[0]
+      : activeSeason.milestones[0] ?? null
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Season tabs */}
+
+      {/* ── SEASON TABS ── */}
       <div className="flex gap-2">
         {SEASON_ORDER.map((key) => {
           const season = seasons.find((s) => s.key === key)!
           const sCfg = SEASONS[key]
           const isCurrent = key === user.currentSeason
           const isActive = key === activeTab
+          const pct = Math.round((season.weeksDone / 12) * 100)
 
           return (
             <button
@@ -33,179 +154,189 @@ export function Seasons() {
                 setActiveTab(key)
                 setSelectedMilestoneId(null)
               }}
-              className="flex flex-col gap-1 px-5 py-3 rounded-xl transition-all"
+              className="flex flex-col gap-2 px-4 py-3 rounded-xl transition-all"
               style={{
-                background: isActive ? `${sCfg.color}15` : '#181818',
-                border: `1px solid ${isActive ? sCfg.color + '40' : 'rgba(255,255,255,0.07)'}`,
-                flex: isCurrent ? '2' : '1',
-                opacity: season.status === 'upcoming' ? 0.6 : 1,
+                background: isActive ? `${sCfg.color}18` : '#181818',
+                border: `1px solid ${isActive ? sCfg.color + '45' : 'rgba(255,255,255,0.07)'}`,
+                flex: isCurrent ? 2 : 1,
+                opacity: season.status === 'upcoming' && !isActive ? 0.6 : 1,
               }}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <span
-                  className="text-sm font-800 capitalize"
-                  style={{ color: isActive ? sCfg.color : 'rgba(255,255,255,0.5)' }}
+                  className="text-sm font-black capitalize"
+                  style={{ color: isActive ? sCfg.color : 'rgba(255,255,255,0.45)' }}
                 >
                   {sCfg.label}
                 </span>
-                {isCurrent && (
-                  <span
-                    className="text-[10px] font-700 px-2 py-0.5 rounded-full"
-                    style={{ background: `${sCfg.color}22`, color: sCfg.color }}
-                  >
-                    CURRENT
-                  </span>
-                )}
-                {season.status === 'done' && (
-                  <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                    DONE
-                  </span>
-                )}
+                <span
+                  className="text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0"
+                  style={{
+                    background: isActive ? `${sCfg.color}22` : 'rgba(255,255,255,0.05)',
+                    color: isActive ? sCfg.color : 'rgba(255,255,255,0.3)',
+                  }}
+                >
+                  {season.status === 'done' ? 'Done' : isCurrent ? `Wk ${season.currentWeek}` : 'Soon'}
+                </span>
               </div>
               <div
                 className="h-1 rounded-full overflow-hidden"
                 style={{ background: 'rgba(255,255,255,0.06)' }}
               >
                 <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${Math.round((season.weeksDone / 12) * 100)}%`,
-                    background: sCfg.color,
-                  }}
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${pct}%`, background: sCfg.color }}
                 />
               </div>
-              <p className="text-[10px] text-left" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                {season.weeksDone}/12 weeks
+              <p className="text-[10px] text-left" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                {season.weeksDone}/12 weeks · {season.milestones.length} milestones
               </p>
             </button>
           )
         })}
       </div>
 
-      {/* Main layout */}
-      <div className="flex gap-5">
+      {/* ── MAIN LAYOUT ── */}
+      <div className="flex gap-5 items-start">
+
         {/* Milestone list */}
-        <div className="w-72 flex-shrink-0 flex flex-col gap-2">
-          <p className="text-xs font-700 px-1" style={{ color: 'rgba(255,255,255,0.36)' }}>
-            MILESTONES ({activeSeason.milestones.length})
-          </p>
-          {activeSeason.milestones.map((ms) => {
-            const area = LIFE_AREAS[ms.lifeAreaKey]
-            const isSelected = ms.id === (selectedMilestone?.id ?? activeSeason.milestones[0]?.id)
-            const doneGoals = ms.weeklyGoals.filter((g) => g.done).length
-            const totalGoals = ms.weeklyGoals.length
-
-            return (
+        <div className="flex-shrink-0 flex flex-col gap-2" style={{ width: 288 }}>
+          <div className="flex items-center justify-between px-1 mb-1">
+            <p className="text-[11px] font-black tracking-wider" style={{ color: 'rgba(255,255,255,0.36)' }}>
+              MILESTONES ({activeSeason.milestones.length})
+            </p>
+            {isCurrentSeason && (
               <button
-                key={ms.id}
-                onClick={() => setSelectedMilestoneId(ms.id)}
-                className="w-full rounded-xl p-3 flex items-start gap-3 text-left transition-all"
-                style={{
-                  background: isSelected ? `${cfg.color}10` : '#181818',
-                  border: `1px solid ${isSelected ? cfg.color + '30' : 'rgba(255,255,255,0.07)'}`,
-                }}
+                onClick={() => setShowResolutionModal(true)}
+                className="text-[10px] font-black px-2 py-1 rounded-lg transition-all"
+                style={{ background: 'rgba(245,197,66,0.12)', color: '#F5C542' }}
               >
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
-                  style={{ background: area.bg }}
-                >
-                  {area.emoji}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm font-700 leading-tight"
-                    style={{ color: isSelected ? '#F0EFEB' : 'rgba(255,255,255,0.7)' }}
-                  >
-                    {ms.title}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <div
-                      className="h-1 flex-1 rounded-full overflow-hidden"
-                      style={{ background: 'rgba(255,255,255,0.06)' }}
-                    >
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: totalGoals > 0 ? `${Math.round((doneGoals / totalGoals) * 100)}%` : '0%',
-                          background: area.color,
-                        }}
-                      />
-                    </div>
-                    <span className="text-[10px] font-600 flex-shrink-0" style={{ color: area.color }}>
-                      {doneGoals}/{totalGoals}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span
-                      className="text-[9px] font-700 px-1.5 py-0.5 rounded"
-                      style={{ background: area.bg, color: area.color }}
-                    >
-                      {area.label}
-                    </span>
-                    {ms.carriedOver && (
-                      <span
-                        className="text-[9px] font-700 px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(245,197,66,0.1)', color: '#F5C542' }}
-                      >
-                        Carried over
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <ChevronRight size={14} style={{ color: 'rgba(255,255,255,0.2)', flexShrink: 0 }} />
+                End Season
               </button>
-            )
-          })}
+            )}
+          </div>
 
-          {activeSeason.milestones.length === 0 && (
+          {activeSeason.milestones.length === 0 ? (
             <div
-              className="rounded-xl p-6 text-center"
+              className="rounded-xl p-8 text-center"
               style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
             >
-              <p className="text-2xl mb-2">🌱</p>
-              <p className="text-sm font-700" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              <p style={{ fontSize: 28, marginBottom: 8 }}>🌱</p>
+              <p className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 No milestones yet
               </p>
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                Add some from the Vision page
+              </p>
             </div>
+          ) : (
+            activeSeason.milestones.map((ms) => {
+              const area = LIFE_AREAS[ms.lifeAreaKey]
+              const isSelected = ms.id === (selectedMilestone?.id ?? '')
+              const doneGoals = ms.weeklyGoals.filter((g) => g.done).length
+              const totalGoalsCount = ms.weeklyGoals.length
+              const pct = totalGoalsCount > 0 ? Math.round((doneGoals / totalGoalsCount) * 100) : 0
+
+              return (
+                <button
+                  key={ms.id}
+                  onClick={() => setSelectedMilestoneId(ms.id)}
+                  className="w-full rounded-xl p-3.5 flex items-start gap-3 text-left transition-all"
+                  style={{
+                    background: isSelected ? `${cfg.color}12` : '#181818',
+                    border: `1px solid ${isSelected ? cfg.color + '35' : 'rgba(255,255,255,0.07)'}`,
+                  }}
+                >
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: area.bg, fontSize: 15 }}
+                  >
+                    {area.emoji}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-sm font-bold leading-tight"
+                      style={{ color: isSelected ? '#F0EFEB' : 'rgba(255,255,255,0.7)' }}
+                    >
+                      {ms.title}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <div
+                        className="h-1 flex-1 rounded-full overflow-hidden"
+                        style={{ background: 'rgba(255,255,255,0.06)' }}
+                      >
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${pct}%`, background: area.color }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-bold" style={{ color: area.color }}>
+                        {pct}%
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <span
+                        className="text-[9px] font-black px-1.5 py-0.5 rounded"
+                        style={{ background: area.bg, color: area.color }}
+                      >
+                        {area.label}
+                      </span>
+                      {ms.carriedOver && (
+                        <span
+                          className="text-[9px] font-black px-1.5 py-0.5 rounded"
+                          style={{ background: 'rgba(245,197,66,0.12)', color: '#F5C542' }}
+                        >
+                          Carried over
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight
+                    size={14}
+                    style={{ color: isSelected ? cfg.color : 'rgba(255,255,255,0.2)', flexShrink: 0, marginTop: 2 }}
+                  />
+                </button>
+              )
+            })
           )}
         </div>
 
         {/* Detail panel */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {selectedMilestone ? (
             <div className="flex flex-col gap-4">
               {/* Hero card */}
               {(() => {
                 const area = LIFE_AREAS[selectedMilestone.lifeAreaKey]
                 const doneGoals = selectedMilestone.weeklyGoals.filter((g) => g.done).length
-                const totalGoals = selectedMilestone.weeklyGoals.length
-                const pct = totalGoals > 0 ? Math.round((doneGoals / totalGoals) * 100) : 0
+                const totalGoalsCount = selectedMilestone.weeklyGoals.length
+                const pct = totalGoalsCount > 0 ? Math.round((doneGoals / totalGoalsCount) * 100) : 0
 
                 return (
                   <div
                     className="rounded-xl p-6"
                     style={{
                       background: area.bg,
-                      border: `1px solid ${area.color}22`,
+                      border: `1px solid ${area.color}25`,
                     }}
                   >
                     <div className="flex items-start gap-4">
                       <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                        style={{ background: `${area.color}22` }}
+                        className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ background: `${area.color}25`, fontSize: 26 }}
                       >
                         {area.emoji}
                       </div>
-                      <div className="flex-1">
-                        <p className="text-lg font-800" style={{ color: '#F0EFEB' }}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xl font-black leading-tight" style={{ color: '#F0EFEB' }}>
                           {selectedMilestone.title}
                         </p>
-                        <p className="text-sm mt-0.5 font-600" style={{ color: area.color }}>
+                        <p className="text-sm font-bold mt-1" style={{ color: area.color }}>
                           {area.label} · {cfg.label} Season
                         </p>
                         <div className="flex items-center gap-3 mt-4">
                           <div
-                            className="h-2 flex-1 rounded-full overflow-hidden"
+                            className="h-2.5 flex-1 rounded-full overflow-hidden"
                             style={{ background: 'rgba(255,255,255,0.12)' }}
                           >
                             <div
@@ -213,12 +344,12 @@ export function Seasons() {
                               style={{ width: `${pct}%`, background: area.color }}
                             />
                           </div>
-                          <span className="text-sm font-800" style={{ color: area.color }}>
+                          <span className="text-base font-black flex-shrink-0" style={{ color: area.color }}>
                             {pct}%
                           </span>
                         </div>
-                        <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                          {doneGoals} of {totalGoals} weekly goals completed
+                        <p className="text-xs mt-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                          {doneGoals} of {totalGoalsCount} weekly goals completed
                         </p>
                       </div>
                     </div>
@@ -226,43 +357,48 @@ export function Seasons() {
                 )
               })()}
 
-              {/* Week strip */}
+              {/* 12-Week strip */}
               <div
                 className="rounded-xl p-4"
                 style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
               >
-                <p className="text-xs font-700 mb-3" style={{ color: 'rgba(255,255,255,0.36)' }}>
+                <p className="text-[11px] font-black tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.36)' }}>
                   12-WEEK STRIP
                 </p>
                 <div className="flex gap-1">
                   {Array.from({ length: 12 }, (_, i) => {
                     const weekNum = i + 1
-                    const hasGoal = selectedMilestone.weeklyGoals.some(
+                    const goalsForWeek = selectedMilestone.weeklyGoals.filter(
                       (g) => g.weekNumber === weekNum
                     )
-                    const isDone = selectedMilestone.weeklyGoals
-                      .filter((g) => g.weekNumber === weekNum)
-                      .every((g) => g.done)
+                    const hasGoal = goalsForWeek.length > 0
+                    const allDone = hasGoal && goalsForWeek.every((g) => g.done)
                     const isCurrent = weekNum === activeSeason.currentWeek
+                    const isPast = weekNum < (activeSeason.currentWeek ?? 0)
 
                     return (
                       <div
                         key={weekNum}
-                        className="flex-1 h-8 rounded flex items-center justify-center text-[10px] font-700"
+                        className="flex-1 rounded flex items-center justify-center font-black"
                         style={{
-                          background: isDone && hasGoal
-                            ? `${cfg.color}30`
-                            : isCurrent
+                          height: 34,
+                          fontSize: 10,
+                          background: isCurrent
                             ? cfg.color
-                            : weekNum <= (activeSeason.weeksDone)
-                            ? 'rgba(255,255,255,0.08)'
+                            : allDone
+                            ? `${cfg.color}28`
+                            : isPast
+                            ? 'rgba(255,255,255,0.06)'
                             : 'rgba(255,255,255,0.03)',
                           color: isCurrent
                             ? '#0F0F0F'
-                            : isDone && hasGoal
+                            : allDone
                             ? cfg.color
-                            : 'rgba(255,255,255,0.3)',
-                          border: isCurrent ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                            : isPast
+                            ? 'rgba(255,255,255,0.35)'
+                            : 'rgba(255,255,255,0.15)',
+                          border: isCurrent ? 'none' : `1px solid ${hasGoal && !allDone ? cfg.color + '30' : 'rgba(255,255,255,0.04)'}`,
+                          boxShadow: isCurrent ? `0 0 10px ${cfg.color}50` : 'none',
                         }}
                         title={`Week ${weekNum}`}
                       >
@@ -273,24 +409,22 @@ export function Seasons() {
                 </div>
               </div>
 
-              {/* Weekly goals */}
+              {/* Weekly goals list */}
               <div
                 className="rounded-xl overflow-hidden"
                 style={{ border: '1px solid rgba(255,255,255,0.07)' }}
               >
                 <div
                   className="px-4 py-3"
-                  style={{ background: '#181818', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+                  style={{ background: '#202020', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                 >
-                  <p className="text-xs font-700" style={{ color: 'rgba(255,255,255,0.36)' }}>
+                  <p className="text-[11px] font-black tracking-wider" style={{ color: 'rgba(255,255,255,0.36)' }}>
                     WEEKLY GOALS
                   </p>
                 </div>
+
                 {selectedMilestone.weeklyGoals.length === 0 ? (
-                  <div
-                    className="p-6 text-center"
-                    style={{ background: '#181818' }}
-                  >
+                  <div className="p-8 text-center" style={{ background: '#181818' }}>
                     <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
                       No weekly goals added yet
                     </p>
@@ -302,7 +436,7 @@ export function Seasons() {
                       className="flex items-start gap-3 px-4 py-3"
                       style={{
                         background: '#181818',
-                        borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                        borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                       }}
                     >
                       <div className="mt-0.5 flex-shrink-0">
@@ -312,28 +446,32 @@ export function Seasons() {
                           <Circle size={16} style={{ color: 'rgba(255,255,255,0.2)' }} />
                         )}
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
                           <span
-                            className="text-[10px] font-700 px-1.5 py-0.5 rounded"
+                            className="text-[10px] font-black px-1.5 py-0.5 rounded flex-shrink-0"
                             style={{
-                              background: 'rgba(255,255,255,0.06)',
-                              color: 'rgba(255,255,255,0.4)',
+                              background: goal.weekNumber === activeSeason.currentWeek
+                                ? `${cfg.color}20`
+                                : 'rgba(255,255,255,0.06)',
+                              color: goal.weekNumber === activeSeason.currentWeek
+                                ? cfg.color
+                                : 'rgba(255,255,255,0.38)',
                             }}
                           >
                             Wk {goal.weekNumber}
                           </span>
                           <p
-                            className="text-sm font-600"
+                            className="text-sm font-bold"
                             style={{
-                              color: goal.done ? 'rgba(255,255,255,0.36)' : '#F0EFEB',
+                              color: goal.done ? 'rgba(255,255,255,0.35)' : '#F0EFEB',
                               textDecoration: goal.done ? 'line-through' : 'none',
                             }}
                           >
                             {goal.title}
                           </p>
                         </div>
-                        <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                        <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
                           {goal.successCriteria}
                         </p>
                       </div>
@@ -344,17 +482,26 @@ export function Seasons() {
             </div>
           ) : (
             <div
-              className="rounded-xl p-12 text-center"
+              className="rounded-xl p-14 text-center"
               style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
             >
-              <p className="text-3xl mb-3">🍃</p>
-              <p className="font-700" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              <p style={{ fontSize: 36, marginBottom: 10 }}>🍃</p>
+              <p className="font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 Select a milestone to view details
               </p>
             </div>
           )}
         </div>
       </div>
+
+      {/* ── RESOLUTION MODAL ── */}
+      {showResolutionModal && (
+        <ResolutionModal
+          milestones={activeSeason.milestones}
+          seasonLabel={cfg.label}
+          onClose={() => setShowResolutionModal(false)}
+        />
+      )}
     </div>
   )
 }
