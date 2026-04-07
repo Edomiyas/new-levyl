@@ -317,7 +317,7 @@ export function Vision() {
               <input
                 type="text"
                 value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value })}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddMilestone()}
                 placeholder="e.g. Run a marathon under 4 hours"
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
