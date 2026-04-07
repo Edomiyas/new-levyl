@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Nunito', sans-serif;
+  --color-bg: #0F0F0F;
+  --color-surface: #181818;
+  --color-surface2: #202020;
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-text: #F0EFEB;
+  --color-muted: rgba(255, 255, 255, 0.36);
+  --color-accent: #AADF4F;
+
+  --color-physical: #5DCAA5;
+  --color-physical-bg: rgba(93, 202, 165, 0.10);
+  --color-mind: #A89EF5;
+  --color-mind-bg: rgba(168, 158, 245, 0.10);
+  --color-spiritual: #F5C542;
+  --color-spiritual-bg: rgba(245, 197, 66, 0.10);
+  --color-wealth: #AADF4F;
+  --color-wealth-bg: rgba(170, 223, 79, 0.10);
+  --color-community: #5BA8F5;
+  --color-community-bg: rgba(91, 168, 245, 0.10);
+  --color-family: #F0739A;
+  --color-family-bg: rgba(240, 115, 154, 0.10);
+
+  --color-spring: #AADF4F;
+  --color-summer: #5DCAA5;
+  --color-fall: #F5C542;
+  --color-winter: #A89EF5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: #0F0F0F;
+  color: #F0EFEB;
+  font-family: 'Nunito', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0F0F0F;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 2px;
+}
