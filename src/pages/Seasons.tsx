@@ -139,12 +139,19 @@ export function Seasons() {
     <div className="flex flex-col gap-6">
 
       {/* ── SEASON TABS ── */}
+      {/* Order: current (leftmost, 2×) → upcoming → done (rightmost, faded+strikethrough) */}
       <div className="flex gap-2">
-        {SEASON_ORDER.map((key) => {
+        {[
+          ...SEASON_ORDER.filter((k) => seasons.find((s) => s.key === k)?.status === 'current'),
+          ...SEASON_ORDER.filter((k) => seasons.find((s) => s.key === k)?.status === 'upcoming'),
+          ...SEASON_ORDER.filter((k) => seasons.find((s) => s.key === k)?.status === 'done'),
+        ].map((key) => {
           const season = seasons.find((s) => s.key === key)!
           const sCfg = SEASONS[key]
           const isCurrent = key === user.currentSeason
           const isActive = key === activeTab
+          const isDone = season.status === 'done'
+          const isUpcoming = season.status === 'upcoming'
           const pct = Math.round((season.weeksDone / 12) * 100)
 
           return (
@@ -159,13 +166,17 @@ export function Seasons() {
                 background: isActive ? `${sCfg.color}18` : '#181818',
                 border: `1px solid ${isActive ? sCfg.color + '45' : 'rgba(255,255,255,0.07)'}`,
                 flex: isCurrent ? 2 : 1,
-                opacity: season.status === 'upcoming' && !isActive ? 0.6 : 1,
+                opacity: isDone ? (isActive ? 0.7 : 0.45) : isUpcoming && !isActive ? 0.55 : 1,
               }}
             >
               <div className="flex items-center justify-between gap-2">
                 <span
                   className="text-sm font-black capitalize"
-                  style={{ color: isActive ? sCfg.color : 'rgba(255,255,255,0.45)' }}
+                  style={{
+                    color: isActive ? sCfg.color : isDone ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.45)',
+                    textDecoration: isDone ? 'line-through' : 'none',
+                    textDecorationColor: isDone ? 'rgba(255,255,255,0.25)' : 'transparent',
+                  }}
                 >
                   {sCfg.label}
                 </span>
@@ -173,10 +184,10 @@ export function Seasons() {
                   className="text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0"
                   style={{
                     background: isActive ? `${sCfg.color}22` : 'rgba(255,255,255,0.05)',
-                    color: isActive ? sCfg.color : 'rgba(255,255,255,0.3)',
+                    color: isActive ? sCfg.color : isDone ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.25)',
                   }}
                 >
-                  {season.status === 'done' ? 'Done' : isCurrent ? `Wk ${season.currentWeek}` : 'Soon'}
+                  {isDone ? 'Done ✓' : isCurrent ? `Wk ${season.currentWeek}` : '🔒 Soon'}
                 </span>
               </div>
               <div
@@ -185,7 +196,7 @@ export function Seasons() {
               >
                 <div
                   className="h-full rounded-full transition-all"
-                  style={{ width: `${pct}%`, background: sCfg.color }}
+                  style={{ width: `${pct}%`, background: sCfg.color, opacity: isDone ? 0.5 : 1 }}
                 />
               </div>
               <p className="text-[10px] text-left" style={{ color: 'rgba(255,255,255,0.28)' }}>
