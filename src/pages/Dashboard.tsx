@@ -209,9 +209,22 @@ export function Dashboard() {
               </div>
             </div>
 
-            {/* Right: Life Tree */}
-            <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 120 }}>
-              <LifeTree level={user.level} badges={badges} />
+            {/* Right: Life Tree with glow */}
+            <div
+              className="flex-shrink-0 flex items-center justify-center relative"
+              style={{ width: 140 }}
+            >
+              {/* Radial glow backdrop */}
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: 'radial-gradient(ellipse 70% 80% at 50% 50%, rgba(170,223,79,0.18) 0%, rgba(170,223,79,0.06) 55%, transparent 100%)',
+                  filter: 'blur(8px)',
+                }}
+              />
+              <div style={{ filter: 'drop-shadow(0 0 18px rgba(170,223,79,0.55)) drop-shadow(0 0 6px rgba(170,223,79,0.35))', position: 'relative' }}>
+                <LifeTree level={user.level} badges={badges} />
+              </div>
             </div>
           </div>
         </div>
