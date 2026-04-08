@@ -27,6 +27,8 @@ export interface Milestone {
   title: string
   status: 'not_started' | 'active' | 'done'
   carriedOver?: boolean
+  statusNote?: string
+  atRisk?: boolean
   weeklyGoals: WeeklyGoal[]
 }
 

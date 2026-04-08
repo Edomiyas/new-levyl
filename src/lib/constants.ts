@@ -44,12 +44,12 @@ export const LIFE_AREAS: Record<
 
 export const SEASONS: Record<
   SeasonKey,
-  { label: string; color: string; weeks: number }
+  { label: string; color: string; weeks: number; emoji: string; heroEmoji: string; dateRange: string; tagline: string }
 > = {
-  spring: { label: 'Spring', color: '#AADF4F', weeks: 12 },
-  summer: { label: 'Summer', color: '#5DCAA5', weeks: 12 },
-  fall: { label: 'Fall', color: '#F5C542', weeks: 12 },
-  winter: { label: 'Winter', color: '#A89EF5', weeks: 12 },
+  spring: { label: 'Spring', color: '#AADF4F', weeks: 12, emoji: '🌸', heroEmoji: '🌸', dateRange: 'January – March', tagline: 'New beginnings. Plant the seeds for your best year.' },
+  summer: { label: 'Summer', color: '#5DCAA5', weeks: 12, emoji: '☀️', heroEmoji: '🌞', dateRange: 'April – June', tagline: 'Full growth. Push hardest. This is your season.' },
+  fall: { label: 'Fall', color: '#F5C542', weeks: 12, emoji: '🍂', heroEmoji: '🍂', dateRange: 'July – September', tagline: 'Harvest what you planted. Stay consistent.' },
+  winter: { label: 'Winter', color: '#A89EF5', weeks: 12, emoji: '❄️', heroEmoji: '❄️', dateRange: 'October – December', tagline: 'Reflect, restore, and plan for what\'s next.' },
 }
 
 export const SEASON_ORDER: SeasonKey[] = ['spring', 'summer', 'fall', 'winter']

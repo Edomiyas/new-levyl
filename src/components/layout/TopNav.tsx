@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Zap, LayoutDashboard, Sun, Leaf, Eye } from 'lucide-react'
+import { Bell, LayoutDashboard, Sun, Leaf, Eye } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import { SEASONS } from '../../lib/constants'
 
@@ -12,9 +12,7 @@ const NAV_ITEMS = [
 
 export function TopNav() {
   const { user } = useAppStore()
-  const seasonColor = SEASONS[user.currentSeason].color
-  const xpToNext = 3000
-  const xpPct = Math.round((user.xp / xpToNext) * 100)
+  const seasonCfg = SEASONS[user.currentSeason]
 
   return (
     <nav
@@ -23,14 +21,12 @@ export function TopNav() {
     >
       <div className="max-w-7xl mx-auto px-6 flex items-center gap-6 h-14">
         {/* Logo */}
-        <div className="flex items-center gap-2 mr-2">
-          <span
-            className="text-xl font-black tracking-tight"
-            style={{ color: '#AADF4F' }}
-          >
-            levyl
-          </span>
-        </div>
+        <span
+          className="text-xl font-black tracking-tight mr-2"
+          style={{ color: '#AADF4F' }}
+        >
+          levyl
+        </span>
 
         {/* Nav links */}
         <div className="flex items-center gap-1 flex-1">
@@ -46,58 +42,54 @@ export function TopNav() {
                 }`
               }
             >
-              <Icon size={14} />
-              {label}
+              {({ isActive }) => (
+                <>
+                  <Icon size={14} />
+                  {label}
+                  {label === 'Seasons' && isActive && (
+                    <span
+                      className="text-[10px] font-black px-1.5 py-0.5 rounded-full capitalize"
+                      style={{ background: `${seasonCfg.color}22`, color: seasonCfg.color }}
+                    >
+                      {user.currentSeason}
+                    </span>
+                  )}
+                </>
+              )}
             </NavLink>
           ))}
         </div>
 
-        {/* XP + level */}
+        {/* Right side */}
         <div className="flex items-center gap-3">
-          {/* Streak */}
-          <div className="flex items-center gap-1 text-sm font-700">
+          {/* Streak pill */}
+          <div
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-black"
+            style={{ background: 'rgba(255,255,255,0.06)', color: '#F0EFEB' }}
+          >
             <span>🔥</span>
-            <span style={{ color: '#F5C542' }}>{user.streak}</span>
+            <span style={{ color: '#F5C542' }}>{user.streak} day streak</span>
           </div>
 
-          {/* XP bar */}
+          {/* Bell */}
+          <button
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[#181818]"
+            style={{ color: 'rgba(255,255,255,0.4)' }}
+          >
+            <Bell size={16} />
+          </button>
+
+          {/* User */}
           <div className="flex items-center gap-2">
-            <Zap size={13} style={{ color: '#AADF4F' }} />
-            <div className="flex flex-col gap-0.5 w-24">
-              <div className="flex justify-between">
-                <span className="text-[10px] font-700" style={{ color: '#AADF4F' }}>
-                  Lv {user.level}
-                </span>
-                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.36)' }}>
-                  {user.xp}/{xpToNext}
-                </span>
-              </div>
-              <div
-                className="h-1 rounded-full overflow-hidden"
-                style={{ background: 'rgba(255,255,255,0.08)' }}
-              >
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${xpPct}%`, background: '#AADF4F' }}
-                />
-              </div>
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black"
+              style={{ background: '#AADF4F22', color: '#AADF4F' }}
+            >
+              {user.name[0]}
             </div>
-          </div>
-
-          {/* Season badge */}
-          <div
-            className="px-2.5 py-1 rounded-full text-[11px] font-800 capitalize"
-            style={{ background: `${seasonColor}22`, color: seasonColor }}
-          >
-            {user.currentSeason}
-          </div>
-
-          {/* Avatar */}
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-800"
-            style={{ background: '#AADF4F22', color: '#AADF4F' }}
-          >
-            {user.name[0]}
+            <span className="text-sm font-bold" style={{ color: '#F0EFEB' }}>
+              {user.name}
+            </span>
           </div>
         </div>
       </div>
