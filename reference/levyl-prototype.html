@@ -1,1 +1,1437 @@
-<!-- Levyl Visual Prototype - Reference file for Claude Code. The full prototype is in the local levyl.html file. Claude Code should use CLAUDE.md and README.md as the primary spec. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Levyl</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:     #0F0F0F;
+  --s1:     #181818;
+  --s2:     #202020;
+  --s3:     #282828;
+  --border: rgba(255,255,255,0.07);
+  --text:   #F0EFEB;
+  --muted:  rgba(255,255,255,0.36);
+  --accent: #AADF4F;
+
+  --physical:  #5DCAA5;
+  --mind:      #A89EF5;
+  --spirit:    #F5C542;
+  --wealth:    #AADF4F;
+  --community: #5BA8F5;
+  --family:    #F0739A;
+
+  --r:    16px;
+  --rl:   22px;
+}
+
+html, body { height: 100%; }
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ══════════════════════════════════
+   TOP NAVBAR
+══════════════════════════════════ */
+.topnav {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(15,15,15,0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  height: 60px;
+  display: flex; align-items: center;
+  padding: 0 44px; gap: 0;
+}
+.logo {
+  margin-right: 40px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.logo-tag { font-size: 9px; font-weight: 900; color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; }
+.logo-name { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; line-height: 1; }
+.logo-name em { color: var(--accent); font-style: normal; }
+
+.nav-links { display: flex; align-items: center; gap: 2px; }
+.nl {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 15px; border-radius: 10px;
+  cursor: pointer; border: none; background: none;
+  color: var(--muted); font-family: 'Nunito', sans-serif;
+  font-size: 14px; font-weight: 700;
+  transition: color .12s, background .12s; white-space: nowrap;
+}
+.nl:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.nl.active { color: var(--text); background: rgba(255,255,255,0.09); }
+.nl-icon { font-size: 15px; }
+.nl-badge {
+  font-size: 10px; font-weight: 800;
+  background: var(--accent); color: #111;
+  padding: 1px 7px; border-radius: 99px;
+}
+
+.nav-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.streak-chip {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(245,197,66,0.1); border: 1px solid rgba(245,197,66,0.2);
+  border-radius: 99px; padding: 6px 14px;
+  font-size: 13px; font-weight: 800; color: #F5C542;
+}
+.nb {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--s1); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; cursor: pointer; transition: background .12s;
+}
+.nb:hover { background: var(--s2); }
+.add-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--accent); color: #111;
+  border: none; border-radius: 10px; padding: 7px 16px;
+  font-size: 13px; font-weight: 800; font-family: 'Nunito', sans-serif;
+  cursor: pointer; transition: opacity .12s; white-space: nowrap;
+}
+.add-btn:hover { opacity: .88; }
+.user-pill {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 12px 3px 3px;
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: 99px; cursor: pointer; transition: background .12s;
+}
+.user-pill:hover { background: var(--s2); }
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #5DCAA5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 900; color: #111;
+}
+.user-pill-name { font-size: 13px; font-weight: 800; }
+
+/* ══════════════════════════════════
+   SCREENS
+══════════════════════════════════ */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ══════════════════════════════════
+   PAGE HEADER
+══════════════════════════════════ */
+.ph { padding: 34px 44px 26px; }
+.ph-eyebrow { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
+.ph-title { font-size: 36px; font-weight: 900; letter-spacing: -1px; line-height: 1; }
+
+/* ══════════════════════════════════
+   SHARED ATOMS
+══════════════════════════════════ */
+.pad { padding: 0 44px 64px; }
+.card {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: var(--rl); padding: 24px;
+}
+.ct { font-size: 15px; font-weight: 900; margin-bottom: 3px; }
+.cs { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 18px; }
+.slbl {
+  font-size: 10px; font-weight: 800; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .1em; margin-bottom: 12px;
+}
+.tag {
+  font-size: 10px; font-weight: 800; padding: 2px 9px;
+  border-radius: 99px; display: inline-block;
+}
+.divrow { height: 1px; background: var(--border); margin: 0; }
+
+/* progress bar */
+.pbar { height: 6px; background: var(--s3); border-radius: 99px; overflow: hidden; }
+.pfill { height: 100%; border-radius: 99px; }
+
+/* circle ring */
+.ring-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+.ring-wrap svg { transform: rotate(-90deg); }
+.ring-label {
+  position: absolute; text-align: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+
+/* milestone row */
+.ms {
+  display: flex; align-items: center; gap: 13px;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.ms:last-child { border-bottom: none; }
+.ms-dot {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.14);
+  display: flex; align-items: center; justify-content: center; font-size: 11px;
+}
+.ms-dot.done { background: #5DCAA5; border-color: #5DCAA5; color: #111; font-weight: 900; }
+.ms-dot.active { border-color: var(--accent); color: var(--accent); font-size: 9px; }
+.ms-body { flex: 1; }
+.ms-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+.ms-meta  { font-size: 11px; color: var(--muted); font-weight: 600; }
+.ms-tag   { font-size: 10px; font-weight: 800; padding: 2px 9px; border-radius: 99px; white-space: nowrap; flex-shrink: 0; }
+
+/* ══════════════════════════════════
+   ① DASHBOARD — Life overview
+══════════════════════════════════ */
+
+/* top stats row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.stat-card {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: var(--rl); padding: 22px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  min-height: 120px; position: relative; overflow: hidden;
+}
+.stat-card::after {
+  content: ''; position: absolute; top: -40px; right: -40px;
+  width: 130px; height: 130px; border-radius: 50%;
+  opacity: .18; pointer-events: none;
+}
+.sc-value { font-size: 38px; font-weight: 900; letter-spacing: -2px; line-height: 1; }
+.sc-label { font-size: 12px; font-weight: 700; color: var(--muted); margin-top: 4px; }
+.sc-sub   { font-size: 11px; font-weight: 700; margin-top: 6px; }
+
+/* tree hero */
+.tree-hero {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: var(--rl); padding: 32px;
+  display: flex; align-items: center; gap: 36px;
+  margin-bottom: 14px; position: relative; overflow: hidden;
+}
+.tree-hero::after {
+  content: ''; position: absolute; top: -60px; right: 160px;
+  width: 260px; height: 260px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(170,223,79,0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+.tree-emoji-big { font-size: 100px; line-height: 1; flex-shrink: 0; filter: drop-shadow(0 0 32px rgba(170,223,79,0.3)); }
+.tree-meta { flex: 1; }
+.tree-level {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(170,223,79,0.1); border: 1px solid rgba(170,223,79,0.22);
+  border-radius: 99px; padding: 5px 14px;
+  font-size: 12px; font-weight: 800; color: var(--accent);
+  margin-bottom: 14px;
+}
+.tree-heading { font-size: 30px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 6px; }
+.tree-desc { font-size: 14px; color: var(--muted); font-weight: 600; margin-bottom: 20px; line-height: 1.6; }
+.tree-xp-row { display: flex; align-items: center; gap: 14px; }
+.tree-xp-bar { flex: 1; height: 10px; background: var(--s3); border-radius: 99px; overflow: hidden; }
+.tree-xp-fill { height: 100%; border-radius: 99px; background: var(--accent); width: 62%; }
+.tree-xp-nums { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-weight: 700; margin-top: 6px; }
+.tree-seasons-mini { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; width: 200px; }
+.tsm-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: var(--r);
+  cursor: pointer; transition: background .12s;
+}
+.tsm-row:hover { background: rgba(255,255,255,0.04); }
+.tsm-row.current { background: rgba(93,202,165,0.08); border: 1px solid rgba(93,202,165,0.2); }
+.tsm-icon { font-size: 20px; width: 26px; text-align: center; }
+.tsm-body { flex: 1; }
+.tsm-name   { font-size: 13px; font-weight: 800; }
+.tsm-months { font-size: 11px; font-weight: 600; color: var(--muted); }
+.tsm-badge  { font-size: 10px; font-weight: 800; padding: 2px 9px; border-radius: 99px; }
+
+/* middle: area rings + summary */
+.dash-mid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+/* area rings card */
+.area-rings-card {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: var(--rl); padding: 28px;
+}
+.area-rings-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 24px 16px;
+}
+.arc { display: flex; align-items: center; gap: 16px; }
+.arc-info { flex: 1; }
+.arc-name { font-size: 14px; font-weight: 900; margin-bottom: 3px; }
+.arc-pct  { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; line-height: 1; }
+.arc-meta { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 3px; }
+.arc-bar  { height: 4px; background: var(--s3); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+.arc-fill { height: 100%; border-radius: 99px; }
+
+/* summary card */
+.summary-card {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: var(--rl); padding: 24px;
+  display: flex; flex-direction: column; gap: 0;
+}
+.summary-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--border);
+}
+.summary-row:last-child { border-bottom: none; }
+.sr-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.sr-body { flex: 1; }
+.sr-name { font-size: 13px; font-weight: 800; }
+.sr-meta { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+.sr-pct  { font-size: 15px; font-weight: 900; flex-shrink: 0; }
+
+/* badges */
+.badge-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 10px; }
+.bdg-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.bdg {
+  width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; transition: transform .1s; cursor: default;
+}
+.bdg:hover { transform: scale(1.08); }
+.bdg.on  { background: rgba(245,197,66,.1); border: 1.5px solid rgba(245,197,66,.28); }
+.bdg.off { background: var(--s2); border: 1.5px solid var(--border); filter: grayscale(1); opacity: .28; }
+.bdg-lbl { font-size: 10px; color: var(--muted); font-weight: 700; text-align: center; }
+
+/* vision snippet */
+.vision-snippet {
+  background: linear-gradient(135deg, rgba(170,223,79,.06), rgba(93,202,165,.06));
+  border: 1px solid rgba(170,223,79,.18);
+  border-radius: var(--rl); padding: 26px;
+  display: flex; gap: 24px; align-items: center;
+}
+.vs-quote {
+  flex: 1; font-size: 15px; font-weight: 700; line-height: 1.75;
+  color: rgba(255,255,255,.72); font-style: italic;
+  padding-left: 16px;
+  border-left: 3px solid var(--accent);
+}
+.vs-cta {
+  flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+}
+.vs-btn {
+  background: none; border: 1px solid var(--border); border-radius: 10px;
+  padding: 9px 16px; font-size: 13px; font-weight: 800; color: var(--muted);
+  font-family: 'Nunito', sans-serif; cursor: pointer; transition: all .12s; white-space: nowrap;
+}
+.vs-btn:hover { border-color: rgba(255,255,255,.2); color: var(--text); }
+.vs-btn.primary { background: var(--accent); border-color: var(--accent); color: #111; }
+.vs-btn.primary:hover { opacity: .88; }
+
+
+/* ══════════════════════════════════
+   ② TODAY — Daily focus
+══════════════════════════════════ */
+
+.today-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 14px;
+}
+
+/* mood date strip */
+.mood-strip {
+  display: flex; gap: 8px; margin-bottom: 14px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.mood-strip::-webkit-scrollbar { display: none; }
+.mood-pill {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 20px; border-radius: var(--rl);
+  background: var(--s1); border: 1px solid var(--border);
+  cursor: pointer; transition: all .12s; flex-shrink: 0; min-width: 72px;
+}
+.mood-pill.active { background: var(--accent); border-color: var(--accent); }
+.mood-pill .mp-day  { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.mood-pill.active .mp-day  { color: rgba(0,0,0,.5); }
+.mood-pill .mp-num  { font-size: 22px; font-weight: 900; }
+.mood-pill.active .mp-num  { color: #111; }
+.mood-pill .mp-mood { font-size: 20px; }
+
+/* focus card */
+.focus-card {
+  background: linear-gradient(135deg, rgba(170,223,79,.07), rgba(93,202,165,.07));
+  border: 1px solid rgba(170,223,79,.2);
+  border-radius: var(--rl); padding: 24px;
+  margin-bottom: 14px;
+}
+.focus-label { font-size: 10px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
+.focus-text  { font-size: 16px; font-weight: 800; line-height: 1.6; }
+
+/* check-in progress */
+.checkin-header {
+  display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px;
+}
+.checkin-frac { font-size: 34px; font-weight: 900; letter-spacing: -1px; }
+.checkin-pct  { font-size: 13px; font-weight: 700; color: var(--muted); }
+.checkin-bar  { height: 8px; background: var(--s3); border-radius: 99px; overflow: hidden; margin-bottom: 20px; }
+.checkin-fill { height: 100%; border-radius: 99px; background: var(--accent); transition: width .4s ease; }
+
+/* task rows */
+.task {
+  display: flex; align-items: flex-start; gap: 13px;
+  padding: 13px 0; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: opacity .1s;
+}
+.task:last-child { border-bottom: none; }
+.task:hover { opacity: .85; }
+.tcb {
+  width: 22px; height: 22px; border-radius: 7px;
+  border: 2px solid rgba(255,255,255,.18); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; margin-top: 1px; transition: all .15s;
+}
+.tcb.done { background: var(--accent); border-color: var(--accent); color: #111; }
+.task-body { flex: 1; }
+.task-name  { font-size: 14px; font-weight: 700; line-height: 1.4; }
+.task-name.done { color: var(--muted); text-decoration: line-through; }
+.task-area  { font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 99px; display: inline-block; margin-top: 5px; }
+.task-crit  { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 4px; }
+
+.plan-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; background: var(--s2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 15px;
+  font-size: 14px; font-weight: 800; color: var(--muted);
+  font-family: 'Nunito', sans-serif; cursor: pointer;
+  transition: all .12s; margin-top: 16px;
+}
+.plan-btn:hover { background: var(--s3); color: var(--text); border-color: rgba(255,255,255,.14); }
+
+/* right sidebar cards */
+.today-right { display: flex; flex-direction: column; gap: 14px; }
+
+/* season week card */
+.swk-strip { display: grid; grid-template-columns: repeat(6,1fr); gap: 5px; }
+.swk { height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+.swk-done    { background: rgba(93,202,165,.15); color: #5DCAA5; }
+.swk-current { background: var(--accent); color: #111; }
+.swk-up      { background: var(--s2); color: var(--muted); }
+
+/* mood log */
+.mood-log { display: flex; flex-direction: column; gap: 0; }
+.mood-log-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--border);
+}
+.mood-log-row:last-child { border-bottom: none; }
+.ml-emoji { font-size: 20px; width: 26px; text-align: center; }
+.ml-body { flex: 1; }
+.ml-day  { font-size: 13px; font-weight: 700; }
+.ml-note { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
+/* reflect textarea */
+.reflect-ta {
+  width: 100%; background: var(--s2); border: 1.5px solid var(--border);
+  border-radius: var(--r); padding: 14px; font-size: 13px;
+  font-family: 'Nunito', sans-serif; font-weight: 600;
+  color: var(--text); resize: none; min-height: 90px;
+  outline: none; line-height: 1.6; transition: border-color .15s; margin-top: 12px;
+}
+.reflect-ta:focus { border-color: var(--accent); }
+.reflect-btn {
+  width: 100%; background: rgba(170,223,79,.1); border: 1px solid rgba(170,223,79,.2);
+  color: var(--accent); border-radius: var(--r); padding: 12px;
+  font-size: 13px; font-weight: 800; font-family: 'Nunito', sans-serif;
+  cursor: pointer; transition: background .12s; margin-top: 8px;
+}
+.reflect-btn:hover { background: rgba(170,223,79,.18); }
+
+
+/* ══════════════════════════════════
+   ③ SEASONS SCREEN
+══════════════════════════════════ */
+.season-tabs-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  align-items: stretch;
+}
+/* current season gets 2x width */
+.stab {
+  background: var(--s1); border: 2px solid var(--border);
+  border-radius: var(--rl); padding: 18px 20px;
+  cursor: pointer; font-family: 'Nunito', sans-serif;
+  text-align: left; transition: all .15s;
+  display: flex; flex-direction: column; gap: 2px;
+  flex: 1; min-width: 0;
+}
+.stab:hover { background: var(--s2); }
+.stab.stab-current { flex: 2.2; }
+.stab.stab-done { opacity: 0.55; }
+.stab.stab-done .stab-name { text-decoration: line-through; }
+.stab.stab-done .stab-icon { filter: grayscale(0.6); }
+.stab-icon   { font-size: 22px; margin-bottom: 4px; }
+.stab-name   { font-size: 15px; font-weight: 900; }
+.stab-months { font-size: 11px; font-weight: 700; color: var(--muted); }
+.stab-badge  { font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 99px; margin-top: 6px; display: inline-block; width: fit-content; }
+.stab.s-spring { background: rgba(170,223,79,.07); border-color: rgba(170,223,79,.35); }
+.stab.s-summer { background: rgba(93,202,165,.07); border-color: rgba(93,202,165,.35); }
+.stab.s-fall   { background: rgba(245,197,66,.07); border-color: rgba(245,197,66,.35); }
+.stab.s-winter { background: rgba(168,158,245,.07); border-color: rgba(168,158,245,.35); }
+.stab.stab-overdue { border-color: rgba(240,115,154,.4); background: rgba(240,115,154,.06); }
+
+/* done season: faded strikethrough overlay */
+.stab.stab-done::after {
+  content: '✓ Done';
+  display: block;
+  font-size: 10px; font-weight: 900;
+  color: var(--accent);
+  margin-top: 6px;
+  text-decoration: none;
+}
+
+.season-body { display: grid; grid-template-columns: 1.8fr 1fr; gap: 14px; }
+.shero {
+  border-radius: var(--rl); padding: 30px;
+  display: flex; flex-direction: column;
+  min-height: 240px; position: relative; overflow: hidden;
+}
+.shero-glow {
+  position: absolute; top: -60px; right: -60px;
+  width: 220px; height: 220px; border-radius: 50%;
+  opacity: .2; pointer-events: none;
+}
+.shero-tag { font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 99px; display: inline-block; width: fit-content; margin-bottom: 14px; }
+.shero-icon { font-size: 50px; margin-bottom: 10px; }
+.shero-name { font-size: 26px; font-weight: 900; margin-bottom: 4px; }
+.shero-tagline { font-size: 13px; font-weight: 600; opacity: .65; margin-bottom: auto; }
+.week-strip { display: grid; grid-template-columns: repeat(12,1fr); gap: 4px; margin-top: 20px; }
+.ws { height: 6px; border-radius: 99px; }
+.ws-done    { background: #5DCAA5; }
+.ws-current { background: var(--accent); }
+.ws-up      { background: var(--s3); }
+.shero-footer { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--muted); margin-top: 8px; }
+
+
+/* ══════════════════════════════════
+   ④ VISION SCREEN
+══════════════════════════════════ */
+.vision-layout {
+  display: grid; grid-template-columns: 1fr 320px; gap: 14px;
+}
+.vision-ta {
+  width: 100%; background: var(--s2); border: 1.5px solid var(--border);
+  border-radius: var(--r); padding: 16px; font-size: 15px;
+  font-family: 'Nunito', sans-serif; font-weight: 600;
+  color: var(--text); resize: none; min-height: 130px;
+  outline: none; line-height: 1.7; transition: border-color .15s;
+}
+.vision-ta:focus { border-color: var(--accent); }
+.gen-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--accent); color: #111;
+  border: none; border-radius: var(--r); padding: 13px 22px;
+  font-size: 14px; font-weight: 800; font-family: 'Nunito', sans-serif;
+  cursor: pointer; margin-top: 12px; transition: opacity .12s;
+}
+.gen-btn:hover { opacity: .88; }
+.arc-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+.arc-pill {
+  border-radius: 14px; padding: 16px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.ap-icon  { font-size: 22px; }
+.ap-name  { font-size: 14px; font-weight: 900; }
+.ap-dates { font-size: 11px; font-weight: 600; opacity: .55; }
+.ap-desc  { font-size: 12px; font-weight: 600; opacity: .65; margin-top: 4px; line-height: 1.5; }
+.ap-spring { background: rgba(170,223,79,.08);  border: 1px solid rgba(170,223,79,.18);  } .ap-spring .ap-name { color: #AADF4F; }
+.ap-summer { background: rgba(93,202,165,.08);  border: 1px solid rgba(93,202,165,.18);  } .ap-summer .ap-name { color: #5DCAA5; }
+.ap-fall   { background: rgba(245,197,66,.08);  border: 1px solid rgba(245,197,66,.18);  } .ap-fall   .ap-name { color: #F5C542; }
+.ap-winter { background: rgba(168,158,245,.08); border: 1px solid rgba(168,158,245,.18); } .ap-winter .ap-name { color: #A89EF5; }
+
+.va-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.va-row:last-child { border-bottom: none; }
+.va-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.va-body { flex: 1; }
+.va-name { font-size: 14px; font-weight: 800; }
+.va-meta { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+.va-pbar { height: 4px; background: var(--s3); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+.va-pfill{ height: 100%; border-radius: 99px; }
+.va-pct  { font-size: 15px; font-weight: 900; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- ══ NAVBAR ══ -->
+<nav class="topnav">
+  <div class="logo">
+    <span class="logo-name">Lev<em>yl</em></span>
+  </div>
+  <div class="nav-links">
+    <button class="nl" onclick="goTo('dashboard',this)"><span class="nl-icon">📊</span>Dashboard</button>
+    <button class="nl active" onclick="goTo('today',this)"><span class="nl-icon">☀️</span>Today</button>
+    <button class="nl" onclick="goTo('seasons',this)"><span class="nl-icon">🌸</span>Seasons<span class="nl-badge">Summer</span></button>
+    <button class="nl" onclick="goTo('vision',this)"><span class="nl-icon">🌟</span>Vision</button>
+  </div>
+  <div class="nav-right">
+    <div class="streak-chip">🔥 12 day streak</div>
+    <button class="nb">🔔</button>
+
+    <div class="user-pill"><div class="avatar">A</div><span class="user-pill-name">Arsenic</span></div>
+  </div>
+</nav>
+
+
+<!-- ══════════════════════════════════════════════
+     ① DASHBOARD — Life progress overview
+══════════════════════════════════════════════ -->
+<div id="screen-dashboard" class="screen">
+  <div class="ph">
+    <div class="ph-eyebrow">Your life at a glance</div>
+    <div class="ph-title">Dashboard 📊</div>
+  </div>
+  <div class="pad">
+
+    <!-- top stat cards -->
+    <div class="stats-row">
+      <div class="stat-card" style="--glow:#AADF4F">
+        <div style="position:absolute;top:-40px;right:-40px;width:130px;height:130px;border-radius:50%;background:#AADF4F;opacity:.08;pointer-events:none"></div>
+        <div>
+          <div class="sc-value" style="color:var(--accent)">62%</div>
+          <div class="sc-label">Overall progress</div>
+        </div>
+        <div class="sc-sub" style="color:var(--accent)">↑ 8% from last season</div>
+      </div>
+      <div class="stat-card">
+        <div style="position:absolute;top:-40px;right:-40px;width:130px;height:130px;border-radius:50%;background:#F5C542;opacity:.08;pointer-events:none"></div>
+        <div>
+          <div class="sc-value" style="color:#F5C542">12d</div>
+          <div class="sc-label">Current streak</div>
+        </div>
+        <div class="sc-sub" style="color:#F5C542">Personal best 🔥</div>
+      </div>
+      <div class="stat-card">
+        <div style="position:absolute;top:-40px;right:-40px;width:130px;height:130px;border-radius:50%;background:#5DCAA5;opacity:.08;pointer-events:none"></div>
+        <div>
+          <div class="sc-value" style="color:#5DCAA5">14</div>
+          <div class="sc-label">Active goals</div>
+        </div>
+        <div class="sc-sub" style="color:#5DCAA5">Across 6 life areas</div>
+      </div>
+      <div class="stat-card">
+        <div style="position:absolute;top:-40px;right:-40px;width:130px;height:130px;border-radius:50%;background:#A89EF5;opacity:.08;pointer-events:none"></div>
+        <div>
+          <div class="sc-value" style="color:#A89EF5">3/6</div>
+          <div class="sc-label">Badges earned</div>
+        </div>
+        <div class="sc-sub" style="color:#A89EF5">3 more to unlock</div>
+      </div>
+    </div>
+
+    <!-- tree hero -->
+    <div class="tree-hero">
+      <div class="tree-emoji-big">🌿</div>
+      <div class="tree-meta">
+        <div class="tree-level">✦ Level 4 — Growing</div>
+        <div class="tree-heading">Your tree is growing</div>
+        <div class="tree-desc">Every completed goal adds a branch. Every season completed makes it bloom further.<br>Keep showing up and it will reach full bloom by Winter.</div>
+        <div class="tree-xp-row">
+          <div style="flex:1">
+            <div class="tree-xp-bar"><div class="tree-xp-fill"></div></div>
+            <div class="tree-xp-nums"><span>1,240 XP</span><span>2,000 XP to Level 5</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="tree-seasons-mini">
+        <div class="slbl" style="margin-bottom:4px">Season progress</div>
+        <div class="tsm-row" style="cursor:pointer" onclick="goTo('seasons',null,'spring')">
+          <span class="tsm-icon">🌸</span>
+          <div class="tsm-body"><div class="tsm-name" style="color:#AADF4F">Spring</div><div class="tsm-months">Jan – Mar</div></div>
+          <span class="tsm-badge" style="background:rgba(170,223,79,.12);color:#AADF4F">✓ Done</span>
+        </div>
+        <div class="tsm-row current">
+          <span class="tsm-icon">☀️</span>
+          <div class="tsm-body"><div class="tsm-name" style="color:#5DCAA5">Summer</div><div class="tsm-months">Apr – Jun</div></div>
+          <span class="tsm-badge" style="background:rgba(93,202,165,.12);color:#5DCAA5">Wk 4</span>
+        </div>
+        <div class="tsm-row" onclick="goTo('seasons',null,'fall')">
+          <span class="tsm-icon">🍂</span>
+          <div class="tsm-body"><div class="tsm-name" style="color:#F5C542">Fall</div><div class="tsm-months">Jul – Sep</div></div>
+          <span class="tsm-badge" style="background:rgba(255,255,255,.05);color:var(--muted)">Soon</span>
+        </div>
+        <div class="tsm-row" onclick="goTo('seasons',null,'winter')">
+          <span class="tsm-icon">❄️</span>
+          <div class="tsm-body"><div class="tsm-name" style="color:#A89EF5">Winter</div><div class="tsm-months">Oct – Dec</div></div>
+          <span class="tsm-badge" style="background:rgba(255,255,255,.05);color:var(--muted)">Soon</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- area rings + summary -->
+    <div class="dash-mid">
+      <div class="area-rings-card">
+        <div class="slbl">Life area health</div>
+        <div class="area-rings-grid">
+
+          <div class="arc">
+            <svg width="64" height="64"><circle cx="32" cy="32" r="26" fill="none" stroke="#1E1E1E" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="#5DCAA5" stroke-width="7" stroke-dasharray="163" stroke-dashoffset="42" stroke-linecap="round"/></svg>
+            <div class="arc-info">
+              <div class="arc-name" style="color:#5DCAA5">Physical</div>
+              <div class="arc-pct" style="color:#5DCAA5">74%</div>
+              <div class="arc-meta">2 active goals</div>
+            </div>
+          </div>
+
+          <div class="arc">
+            <svg width="64" height="64"><circle cx="32" cy="32" r="26" fill="none" stroke="#1E1E1E" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="#A89EF5" stroke-width="7" stroke-dasharray="163" stroke-dashoffset="65" stroke-linecap="round"/></svg>
+            <div class="arc-info">
+              <div class="arc-name" style="color:#A89EF5">Mind</div>
+              <div class="arc-pct" style="color:#A89EF5">60%</div>
+              <div class="arc-meta">2 active goals</div>
+            </div>
+          </div>
+
+          <div class="arc">
+            <svg width="64" height="64"><circle cx="32" cy="32" r="26" fill="none" stroke="#1E1E1E" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="#F5C542" stroke-width="7" stroke-dasharray="163" stroke-dashoffset="90" stroke-linecap="round"/></svg>
+            <div class="arc-info">
+              <div class="arc-name" style="color:#F5C542">Spiritual</div>
+              <div class="arc-pct" style="color:#F5C542">45%</div>
+              <div class="arc-meta">1 active goal</div>
+            </div>
+          </div>
+
+          <div class="arc">
+            <svg width="64" height="64"><circle cx="32" cy="32" r="26" fill="none" stroke="#1E1E1E" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="#AADF4F" stroke-width="7" stroke-dasharray="163" stroke-dashoffset="73" stroke-linecap="round"/></svg>
+            <div class="arc-info">
+              <div class="arc-name" style="color:#AADF4F">Wealth</div>
+              <div class="arc-pct" style="color:#AADF4F">55%</div>
+              <div class="arc-meta">2 active goals</div>
+            </div>
+          </div>
+
+          <div class="arc">
+            <svg width="64" height="64"><circle cx="32" cy="32" r="26" fill="none" stroke="#1E1E1E" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="#F0739A" stroke-width="7" stroke-dasharray="163" stroke-dashoffset="134" stroke-linecap="round"/></svg>
+            <div class="arc-info">
+              <div class="arc-name" style="color:#F0739A">Community</div>
+              <div class="arc-pct" style="color:#F0739A">18%</div>
+              <div class="arc-meta" style="color:#F0739A">⚠ Needs focus</div>
+            </div>
+          </div>
+
+          <div class="arc">
+            <svg width="64" height="64"><circle cx="32" cy="32" r="26" fill="none" stroke="#1E1E1E" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="#F0739A" stroke-width="7" stroke-dasharray="163" stroke-dashoffset="82" stroke-linecap="round"/></svg>
+            <div class="arc-info">
+              <div class="arc-name" style="color:#F0739A">Family</div>
+              <div class="arc-pct" style="color:#F0739A">50%</div>
+              <div class="arc-meta">1 active goal</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+
+    </div>
+
+    <!-- badges -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="ct">Badges</div>
+      <div class="cs">3 earned · 3 locked</div>
+      <div class="badge-grid">
+        <div class="bdg-item"><div class="bdg on">🏋</div><div class="bdg-lbl">First lift</div></div>
+        <div class="bdg-item"><div class="bdg on">🧠</div><div class="bdg-lbl">Mind seed</div></div>
+        <div class="bdg-item"><div class="bdg on">📈</div><div class="bdg-lbl">First invest</div></div>
+        <div class="bdg-item"><div class="bdg off">🌟</div><div class="bdg-lbl">10 wk streak</div></div>
+        <div class="bdg-item"><div class="bdg off">🌿</div><div class="bdg-lbl">Full bloom</div></div>
+        <div class="bdg-item"><div class="bdg off">🏆</div><div class="bdg-lbl">Season done</div></div>
+      </div>
+    </div>
+
+    <!-- vision snippet -->
+    <div class="vision-snippet">
+      <div class="vs-quote">"I am someone who shows up physically strong, mentally clear, spiritually grounded, and financially intentional. I have deep relationships and feel genuinely proud of who I am becoming."</div>
+      <div class="vs-cta">
+        <button class="vs-btn primary" onclick="goTo('vision',null)">Edit vision ↗</button>
+        <button class="vs-btn">See all seasons</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     ② TODAY — Daily focus & check-in
+══════════════════════════════════════════════ -->
+<div id="screen-today" class="screen active">
+  <div class="ph">
+    <div class="ph-eyebrow">Good evening,</div>
+    <div class="ph-title">Arsenic 👋</div>
+  </div>
+  <div class="pad">
+
+    <!-- mood date strip -->
+    <div class="mood-strip">
+      <div class="mood-pill"><span class="mp-day">Mon</span><span class="mp-num">31</span><span class="mp-mood">😣</span></div>
+      <div class="mood-pill"><span class="mp-day">Tue</span><span class="mp-num">1</span><span class="mp-mood">🤩</span></div>
+      <div class="mood-pill"><span class="mp-day">Wed</span><span class="mp-num">2</span><span class="mp-mood">😤</span></div>
+      <div class="mood-pill"><span class="mp-day">Thu</span><span class="mp-num">3</span><span class="mp-mood">😊</span></div>
+      <div class="mood-pill active"><span class="mp-day">Fri</span><span class="mp-num">4</span><span class="mp-mood">😎</span></div>
+      <div class="mood-pill"><span class="mp-day">Sat</span><span class="mp-num">5</span><span class="mp-mood">🙂</span></div>
+      <div class="mood-pill"><span class="mp-day">Sun</span><span class="mp-num">6</span><span class="mp-mood">🙂</span></div>
+    </div>
+
+    <div class="today-layout">
+      <div>
+
+        <!-- context banner -->
+        <div class="focus-card" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div class="focus-label">Summer · Week 4 of 12</div>
+            <div style="font-size:12px;font-weight:800;color:var(--accent)">Sunday review due tomorrow</div>
+          </div>
+          <div class="focus-text">Each group below is one of your Summer milestones. The goals inside are what you committed to this week to move toward it.</div>
+        </div>
+
+        <!-- overall week progress -->
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:var(--rl);padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:24px">
+          <div>
+            <div style="font-size:42px;font-weight:900;letter-spacing:-2px;line-height:1" id="t-frac">3<span style="font-size:20px;opacity:.3;font-weight:700">/7</span></div>
+            <div style="font-size:12px;color:var(--muted);font-weight:700;margin-top:3px">goals hit this week</div>
+          </div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;margin-bottom:7px">
+              <span style="font-size:12px;font-weight:700;color:var(--muted)">Week progress</span>
+              <span style="font-size:12px;font-weight:800;color:var(--accent)" id="t-pct">43%</span>
+            </div>
+            <div class="checkin-bar"><div class="checkin-fill" id="t-fill" style="width:43%"></div></div>
+          </div>
+        </div>
+
+        <!-- milestone groups rendered by JS -->
+        <div id="today-milestone-groups" style="display:flex;flex-direction:column;gap:14px"></div>
+
+      </div>
+
+      <!-- right col -->
+      <div class="today-right">
+
+        <div class="card">
+          <div class="ct">Summer sprint</div>
+          <div class="cs">Week 4 of 12</div>
+          <div class="swk-strip" id="today-week-strip"></div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:11px;font-weight:700;color:var(--muted)">
+            <span>3 done</span><span style="color:#5DCAA5">8 left</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ct">Milestone health</div>
+          <div class="cs">Summer · at-a-glance</div>
+          <div id="ms-health" style="display:flex;flex-direction:column;gap:0"></div>
+        </div>
+
+        <div class="card">
+          <div class="ct">Mood this week</div>
+          <div class="cs">How you showed up each day</div>
+          <div class="mood-log">
+            <div class="mood-log-row"><span class="ml-emoji">😣</span><div class="ml-body"><div class="ml-day">Monday</div><div class="ml-note">Tough start but pushed through</div></div></div>
+            <div class="mood-log-row"><span class="ml-emoji">🤩</span><div class="ml-body"><div class="ml-day">Tuesday</div><div class="ml-note">Best workout of the week</div></div></div>
+            <div class="mood-log-row"><span class="ml-emoji">😤</span><div class="ml-body"><div class="ml-day">Wednesday</div><div class="ml-note">Distracted, but still showed up</div></div></div>
+            <div class="mood-log-row"><span class="ml-emoji">😊</span><div class="ml-body"><div class="ml-day">Thursday</div><div class="ml-note">Found my rhythm again</div></div></div>
+            <div class="mood-log-row"><span class="ml-emoji">😎</span><div class="ml-body"><div class="ml-day">Today</div><div class="ml-note">Feeling locked in</div></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ct">Sunday reflection</div>
+          <div class="cs">Week 4 — what are you taking away?</div>
+          <textarea class="reflect-ta" placeholder="What went well this week? What will you do differently next week?"></textarea>
+          <button class="reflect-btn">Save reflection</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     ③ SEASONS SCREEN
+══════════════════════════════════════════════ -->
+<div id="screen-seasons" class="screen">
+  <div class="ph">
+    <div class="ph-eyebrow">Your year in</div>
+    <div class="ph-title">Seasons 🌸</div>
+  </div>
+  <div class="pad">
+    <div class="season-tabs-row" id="season-tabs-row"></div>
+    <div class="season-body" id="season-body"></div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     ④ VISION SCREEN
+══════════════════════════════════════════════ -->
+<div id="screen-vision" class="screen">
+  <div class="ph">
+    <div class="ph-eyebrow">December 31, 2026</div>
+    <div class="ph-title">Your vision 🌟</div>
+  </div>
+  <div class="pad">
+    <div class="vision-layout">
+      <div style="display:flex;flex-direction:column;gap:14px">
+
+        <div class="card">
+          <div class="ct">Describe your best self</div>
+          <div class="cs">Write freely. From this, your seasons, milestones, and weekly goals are generated by AI.</div>
+          <textarea class="vision-ta">I am someone who shows up physically strong, mentally clear, spiritually grounded, and financially intentional. I have deep relationships, give back to my community, and feel genuinely proud of who I am becoming.</textarea>
+          <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
+            <button class="gen-btn">Generate my seasons from this ↗</button>
+            <button class="gen-btn" style="background:var(--s2);color:var(--text);border:1px solid var(--border)" onclick="document.getElementById('add-goal-modal').style.display='flex'">+ Add goal</button>
+          </div>
+          <p style="font-size:11px;color:var(--muted);font-weight:600;margin-top:10px;line-height:1.6">Goals must be tied to your vision. Define your vision first, then add goals that move you toward it.</p>
+        </div>
+
+        <div class="card">
+          <div class="ct">Year arc</div>
+          <div class="cs">Each season has a distinct intention that builds on the last</div>
+          <div class="arc-grid">
+            <div class="arc-pill ap-spring"><span class="ap-icon">🌸</span><span class="ap-name">Spring</span><span class="ap-dates">Jan – Mar</span><span class="ap-desc">Plant seeds. Build habits from scratch. Lay the foundation.</span></div>
+            <div class="arc-pill ap-summer"><span class="ap-icon">☀️</span><span class="ap-name">Summer</span><span class="ap-dates">Apr – Jun</span><span class="ap-desc">Full growth. Push hardest. Momentum is highest here.</span></div>
+            <div class="arc-pill ap-fall"><span class="ap-icon">🍂</span><span class="ap-name">Fall</span><span class="ap-dates">Jul – Sep</span><span class="ap-desc">Harvest results. Refine what works. Start to consolidate.</span></div>
+            <div class="arc-pill ap-winter"><span class="ap-icon">❄️</span><span class="ap-name">Winter</span><span class="ap-dates">Oct – Dec</span><span class="ap-desc">Rest, reflect, and set intentions for the year ahead.</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ct">Annual progress</div>
+          <div class="cs">How each life area tracks against your year-end vision</div>
+          <div class="va-row"><div class="va-dot" style="background:#5DCAA5"></div><div class="va-body"><div class="va-name">Physical</div><div class="va-meta">Spring done → Summer in progress</div><div class="va-pbar"><div class="va-pfill" style="width:74%;background:#5DCAA5"></div></div></div><div class="va-pct" style="color:#5DCAA5">74%</div></div>
+          <div class="va-row"><div class="va-dot" style="background:#AADF4F"></div><div class="va-body"><div class="va-name">Wealth</div><div class="va-meta">Spring done → Summer in progress</div><div class="va-pbar"><div class="va-pfill" style="width:55%;background:#AADF4F"></div></div></div><div class="va-pct" style="color:#AADF4F">55%</div></div>
+          <div class="va-row"><div class="va-dot" style="background:#A89EF5"></div><div class="va-body"><div class="va-name">Mind</div><div class="va-meta">Spring done → Summer in progress</div><div class="va-pbar"><div class="va-pfill" style="width:60%;background:#A89EF5"></div></div></div><div class="va-pct" style="color:#A89EF5">60%</div></div>
+          <div class="va-row"><div class="va-dot" style="background:#F5C542"></div><div class="va-body"><div class="va-name">Spiritual</div><div class="va-meta">Building consistency this Summer</div><div class="va-pbar"><div class="va-pfill" style="width:45%;background:#F5C542"></div></div></div><div class="va-pct" style="color:#F5C542">45%</div></div>
+          <div class="va-row"><div class="va-dot" style="background:#F0739A"></div><div class="va-body"><div class="va-name">Family</div><div class="va-meta">Spring done → Summer in progress</div><div class="va-pbar"><div class="va-pfill" style="width:50%;background:#F0739A"></div></div></div><div class="va-pct" style="color:#F0739A">50%</div></div>
+          <div class="va-row"><div class="va-dot" style="background:#5BA8F5"></div><div class="va-body"><div class="va-name">Community</div><div class="va-meta" style="color:#F0739A">Needs attention this Summer</div><div class="va-pbar"><div class="va-pfill" style="width:18%;background:#F0739A"></div></div></div><div class="va-pct" style="color:#F0739A">18%</div></div>
+        </div>
+
+      </div>
+
+      <!-- right col -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="card">
+          <div class="ct">Your tree</div>
+          <div class="cs">Level 4 — Growing</div>
+          <div style="text-align:center;font-size:80px;margin:14px 0;filter:drop-shadow(0 0 24px rgba(170,223,79,.25))">🌿</div>
+          <div class="pbar" style="margin-bottom:6px"><div class="pfill" style="width:62%;background:var(--accent)"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:18px"><span>1,240 XP</span><span>2,000 XP</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="background:var(--s2);border-radius:12px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:900;color:#F5C542">12d</div><div style="font-size:11px;color:var(--muted);font-weight:700;margin-top:2px">Streak</div></div>
+            <div style="background:var(--s2);border-radius:12px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:900;color:var(--accent)">14</div><div style="font-size:11px;color:var(--muted);font-weight:700;margin-top:2px">Goals</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ct">Badges</div>
+          <div class="cs">3 of 6 unlocked</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+            <div class="bdg-item"><div class="bdg on">🏋</div><div class="bdg-lbl">First lift</div></div>
+            <div class="bdg-item"><div class="bdg on">🧠</div><div class="bdg-lbl">Mind seed</div></div>
+            <div class="bdg-item"><div class="bdg on">📈</div><div class="bdg-lbl">First invest</div></div>
+            <div class="bdg-item"><div class="bdg off">🌟</div><div class="bdg-lbl">10 wk streak</div></div>
+            <div class="bdg-item"><div class="bdg off">🌿</div><div class="bdg-lbl">Full bloom</div></div>
+            <div class="bdg-item"><div class="bdg off">🏆</div><div class="bdg-lbl">Season done</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     JS
+══════════════════════════════════════════════ -->
+<script>
+// ── SEASON DATA ─────────────────────────────
+const SD = {
+  spring: {
+    c:'#AADF4F', bg:'rgba(170,223,79,.07)', border:'rgba(170,223,79,.3)',
+    icon:'🌸', name:'Spring', months:'January – March',
+    tagline:'Plant seeds. Build the foundation.',
+    tb:'rgba(170,223,79,.12)', tc:'#AADF4F',
+    wd:12, cw:null,
+    ms:[
+      {d:true, a:false, t:'Establish a morning routine',       m:'Completed week 3',  tag:'Spiritual', tc:'#F5C542', tb:'rgba(245,197,66,.12)'},
+      {d:true, a:false, t:'Open investment account',           m:'Completed week 8',  tag:'Wealth',    tc:'#AADF4F', tb:'rgba(170,223,79,.12)'},
+      {d:true, a:false, t:'Hit gym consistently for 8 weeks',  m:'Completed week 12', tag:'Physical',  tc:'#5DCAA5', tb:'rgba(93,202,165,.12)'},
+    ]
+  },
+  summer: {
+    c:'#5DCAA5', bg:'rgba(93,202,165,.07)', border:'rgba(93,202,165,.3)',
+    icon:'☀️', name:'Summer', months:'April – June',
+    tagline:'Full growth. Push hardest. This is your season.',
+    tb:'rgba(93,202,165,.12)', tc:'#5DCAA5',
+    wd:3, cw:4,
+    ms:[
+      {d:true, a:false, t:'Hit 3x gym per week',                m:'Completed week 2',          tag:'Physical',  tc:'#5DCAA5', tb:'rgba(93,202,165,.12)'},
+      {d:false,a:true,  t:'Invest $500 into index fund monthly', m:'In progress – 2 months left',tag:'Wealth',    tc:'#AADF4F', tb:'rgba(170,223,79,.12)'},
+      {d:false,a:false, t:'Read 2 books on mental models',       m:'Not started',               tag:'Mind',      tc:'#A89EF5', tb:'rgba(168,158,245,.12)'},
+      {d:false,a:false, t:'Attend 2 community events',           m:'Flagged at risk ⚠',         tag:'Community', tc:'#5BA8F5', tb:'rgba(91,168,245,.12)'},
+      {d:false,a:true,  t:'Daily 10-min morning practice',       m:'40% consistency so far',    tag:'Spiritual', tc:'#F5C542', tb:'rgba(245,197,66,.12)'},
+    ]
+  },
+  fall: {
+    c:'#F5C542', bg:'rgba(245,197,66,.07)', border:'rgba(245,197,66,.3)',
+    icon:'🍂', name:'Fall', months:'July – September',
+    tagline:'Harvest results. Refine what works.',
+    tb:'rgba(245,197,66,.12)', tc:'#F5C542',
+    wd:0, cw:null,
+    ms:[
+      {d:false,a:false,t:'Run your first 5K',              m:'Planned week 6',  tag:'Physical',  tc:'#5DCAA5', tb:'rgba(93,202,165,.12)'},
+      {d:false,a:false,t:'Review and rebalance portfolio', m:'Planned week 10', tag:'Wealth',    tc:'#AADF4F', tb:'rgba(170,223,79,.12)'},
+      {d:false,a:false,t:'Host one community gathering',   m:'To be scheduled', tag:'Community', tc:'#5BA8F5', tb:'rgba(91,168,245,.12)'},
+    ]
+  },
+  winter: {
+    c:'#A89EF5', bg:'rgba(168,158,245,.07)', border:'rgba(168,158,245,.3)',
+    icon:'❄️', name:'Winter', months:'October – December',
+    tagline:'Rest, reflect, and set intentions.',
+    tb:'rgba(168,158,245,.12)', tc:'#A89EF5',
+    wd:0, cw:null,
+    ms:[
+      {d:false,a:false,t:'Annual review of all 6 areas',m:'Scheduled for December',tag:'All', tc:'#888', tb:'rgba(255,255,255,.06)'},
+      {d:false,a:false,t:'Write vision for next year',  m:'Late December',         tag:'Vision',tc:'#A89EF5',tb:'rgba(168,158,245,.12)'},
+    ]
+  }
+};
+
+// ── STATE ────────────────────────────────────────────────────
+// current = the one active season users are working in
+// overdue = summer has ended with unfinished milestones (demo state)
+const CURRENT_SEASON = 'summer';
+let activeSeason = 'summer';
+const SEASON_ORDER = ['summer','fall','winter','spring'];
+const SEASON_STATUS = { spring:'done', summer:'current', fall:'upcoming', winter:'upcoming' };
+
+// simulate: summer is overdue (date passed, unfinished milestones remain)
+const OVERDUE_SEASON = 'summer';
+const NEXT_SEASON    = 'fall';
+
+// ── RENDER SEASON BODY ───────────────────────────────────────
+function renderSeason(k) {
+  const s = SD[k];
+  const status   = SEASON_STATUS[k];
+  const isCurrent  = status === 'current';
+  const isUpcoming = status === 'upcoming';
+  const isDone     = status === 'done';
+
+  // week strip
+  let ws = '';
+  for(let i=1;i<=12;i++){
+    const c = i<=s.wd?'ws-done':i===s.cw?'ws-current':'ws-up';
+    ws+=`<div class="ws ${c}"></div>`;
+  }
+  const showStrip = s.wd>0||s.cw;
+  const stripHtml = showStrip ? `
+    <div class="card" style="margin-bottom:0">
+      <div class="ct">12-week sprint</div>
+      <div class="cs">${s.wd} weeks done${s.cw?` · Currently week ${s.cw}`:''}</div>
+      <div class="week-strip">${ws}</div>
+      <div class="shero-footer"><span>${s.wd} done</span><span style="color:${s.c}">${12-s.wd} weeks left</span></div>
+    </div>`
+  : `<div class="card" style="display:flex;align-items:center;justify-content:center;min-height:90px;color:var(--muted);font-size:14px;font-weight:700">Season not started yet</div>`;
+
+  // milestone rows
+  const unfinished = s.ms.filter(m=>!m.d);
+  let msHtml = s.ms.map((m,i)=>{
+    const dc=m.d?'done':m.a?'active':'';
+    const di=m.d?'✓':m.a?'●':'';
+    const ts=m.d?'color:var(--muted);text-decoration:line-through':'';
+    const carried = m.carried ? `<span style="font-size:10px;font-weight:800;color:#F5C542;margin-left:6px">↩ carried over</span>` : '';
+    // overdue action buttons on unfinished milestones
+    const overdueActions = (k===OVERDUE_SEASON && !m.d) ? `
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button onclick="resolveMs('${k}',${i},'complete')" style="background:rgba(170,223,79,.1);border:1px solid rgba(170,223,79,.25);color:#AADF4F;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:800;font-family:'Nunito',sans-serif;cursor:pointer">✓ Mark complete</button>
+        <button onclick="resolveMs('${k}',${i},'move')" style="background:rgba(245,197,66,.1);border:1px solid rgba(245,197,66,.25);color:#F5C542;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:800;font-family:'Nunito',sans-serif;cursor:pointer">→ Move to ${SD[NEXT_SEASON].name}</button>
+      </div>` : '';
+    return `<div class="ms">
+      <div class="ms-dot ${dc}">${di}</div>
+      <div class="ms-body">
+        <div class="ms-title" style="${ts}">${m.t}${carried}</div>
+        <div class="ms-meta">${m.m}</div>
+        ${overdueActions}
+      </div>
+      <span class="ms-tag" style="background:${m.tb};color:${m.tc}">${m.tag}</span>
+    </div>`;
+  }).join('');
+
+  // overdue banner
+  const overdueBanner = (k===OVERDUE_SEASON && unfinished.length>0) ? `
+    <div style="background:rgba(240,115,154,0.08);border:1.5px solid rgba(240,115,154,0.3);border-radius:14px;padding:16px 20px;margin-bottom:0;display:flex;align-items:flex-start;gap:12px">
+      <span style="font-size:20px;flex-shrink:0">⏰</span>
+      <div>
+        <div style="font-size:14px;font-weight:900;color:#F0739A;margin-bottom:4px">Summer has ended — ${unfinished.length} milestone${unfinished.length>1?'s':''} unresolved</div>
+        <div style="font-size:12px;color:var(--muted);font-weight:600;line-height:1.5">You must resolve each one before Fall begins. Mark it complete or carry it forward to Fall.</div>
+      </div>
+    </div>` : '';
+
+  // locked banner for upcoming seasons
+  const lockedBanner = isUpcoming ? `
+    <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:12px;margin-bottom:0">
+      <span style="font-size:20px">🔒</span>
+      <div>
+        <div style="font-size:14px;font-weight:900;color:var(--muted);margin-bottom:3px">${s.name} is locked</div>
+        <div style="font-size:12px;color:var(--muted);font-weight:600;line-height:1.5">Complete the current season first. You can add milestones from the Vision page ahead of time.</div>
+      </div>
+    </div>` : '';
+
+  // add milestone CTA — only for current season
+  const addMsCTA = isCurrent ? `
+    <button onclick="goTo('vision',null)" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;background:rgba(170,223,79,.08);border:1.5px dashed rgba(170,223,79,.3);border-radius:12px;padding:13px;font-size:13px;font-weight:800;color:var(--accent);font-family:'Nunito',sans-serif;cursor:pointer;transition:background .12s" onmouseover="this.style.background='rgba(170,223,79,.14)'" onmouseout="this.style.background='rgba(170,223,79,.08)'">
+      + Add milestone from Vision
+    </button>` : '';
+
+  document.getElementById('season-body').innerHTML = `
+    <div class="card">
+      <div class="ct">${s.name} milestones</div>
+      <div class="cs">${s.ms.length} milestone${s.ms.length!==1?'s':''} this season</div>
+      ${overdueBanner ? overdueBanner + '<div style="height:14px"></div>' : ''}
+      ${lockedBanner ? lockedBanner + '<div style="height:14px"></div>' : ''}
+      ${msHtml}
+      ${addMsCTA}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="shero" style="background:${s.bg};border:1px solid ${s.border}">
+        <div class="shero-glow" style="background:${s.c}"></div>
+        <div class="shero-tag" style="background:${s.tb};color:${s.tc};border:1px solid ${s.border}">${s.icon} ${s.name}</div>
+        <div class="shero-icon">${s.icon}</div>
+        <div class="shero-name" style="color:${s.c}">${s.months}</div>
+        <div class="shero-tagline">${s.tagline}</div>
+      </div>
+      ${stripHtml}
+    </div>`;
+}
+
+// ── RESOLVE OVERDUE MILESTONE ────────────────────────────────
+function resolveMs(seasonKey, idx, action) {
+  const m = SD[seasonKey].ms[idx];
+  if(action === 'complete') {
+    m.d = true;
+    m.a = false;
+    m.m = 'Marked complete at end of season';
+  } else {
+    // move to next season
+    SD[seasonKey].ms.splice(idx, 1);
+    const carried = {...m, d:false, a:false, m:'Carried over from ' + SD[seasonKey].name, carried:true };
+    SD[NEXT_SEASON].ms.unshift(carried);
+  }
+  renderSeason(seasonKey);
+  // if all resolved, clear overdue
+  const remaining = SD[seasonKey].ms.filter(x=>!x.d);
+  if(remaining.length === 0) {
+    SEASON_STATUS[seasonKey] = 'done';
+    renderSeasonTabs();
+  }
+}
+
+// ── SEASON TABS ──────────────────────────────────────────────
+const SEASON_ORDER_MAP = { summer:0, fall:1, winter:2, spring:3 };
+
+function renderSeasonTabs() {
+  const container = document.getElementById('season-tabs-row');
+  if (!container) return;
+
+  const order = Object.keys(SD).sort((a,b) => SEASON_ORDER_MAP[a] - SEASON_ORDER_MAP[b]);
+
+  container.innerHTML = order.map(k => {
+    const s      = SD[k];
+    const status = SEASON_STATUS[k];
+    const isCurrent  = status === 'current';
+    const isDone     = status === 'done';
+    const isOverdue  = k === OVERDUE_SEASON && SD[k].ms.filter(m=>!m.d).length > 0;
+    const unresolved = isOverdue ? SD[k].ms.filter(m=>!m.d).length : 0;
+
+    let badgeHtml = '';
+    if (isOverdue) {
+      badgeHtml = `<span class="stab-badge" style="background:rgba(240,115,154,.15);color:#F0739A">⏰ ${unresolved} unresolved</span>`;
+    } else if (isCurrent) {
+      badgeHtml = `<span class="stab-badge" style="background:${s.tb};color:${s.tc}">● Week ${s.cw} of 12</span>`;
+    } else if (!isDone) {
+      badgeHtml = `<span class="stab-badge" style="background:rgba(255,255,255,.05);color:var(--muted)">Upcoming</span>`;
+    }
+
+    const activeClass = activeSeason === k ? ` s-${k}` : '';
+    const stateClass  = isCurrent ? ' stab-current' : isDone ? ' stab-done' : '';
+    const overdueClass = isOverdue ? ' stab-overdue' : '';
+
+    return `<button class="stab${activeClass}${stateClass}${overdueClass}" data-s="${k}" onclick="pickSeason('${k}',this)">
+      <span class="stab-icon">${s.icon}</span>
+      <span class="stab-name" style="color:${isOverdue?'#F0739A':s.c}">${s.name}</span>
+      <span class="stab-months">${s.months}</span>
+      ${badgeHtml}
+    </button>`;
+  }).join('');
+}
+
+function pickSeason(k, btn) {
+  activeSeason = k;
+  renderSeasonTabs();
+  renderSeason(k);
+}
+
+// ── NAV ─────────────────────────────────────
+function goTo(screen, btn, season) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+screen).classList.add('active');
+  document.querySelectorAll('.nl').forEach(n=>n.classList.remove('active'));
+  if(btn&&btn.classList) btn.classList.add('active');
+  else {
+    // auto-highlight matching nav
+    document.querySelectorAll('.nl').forEach(n=>{
+      if(n.textContent.toLowerCase().includes(screen.replace('_',''))) n.classList.add('active');
+    });
+  }
+  if(screen==='seasons'){ renderSeasonTabs(); if(season) pickSeason(season,null); else renderSeason(activeSeason); }
+  window.scrollTo(0,0);
+}
+
+// ── TODAY WEEKLY GOALS DATA ───────────────────
+// Each milestone from the current season has weekly goals beneath it
+const WEEKLY_GOALS = {
+  'Invest $500 into index fund monthly': {
+    weekGoal: 'Week 4 action: Set up auto-transfer for April',
+    goals: [
+      { id:'wg1', done:true,  name:'Confirm $500 auto-transfer is scheduled', crit:'Screenshot of confirmation' },
+      { id:'wg2', done:true,  name:'Review current portfolio allocation',       crit:'30 min review session' },
+    ]
+  },
+  'Read 2 books on mental models': {
+    weekGoal: 'Week 4 action: Read 30 min daily',
+    goals: [
+      { id:'wg3', done:false, name:'Read 30 min — Mon, Tue, Wed',  crit:'3 of 7 days minimum' },
+      { id:'wg4', done:false, name:'Read 30 min — Thu, Fri, Sat',  crit:'Complete 6 of 7 days for gold' },
+    ]
+  },
+  'Attend 2 community events': {
+    weekGoal: 'Week 4 action: Find and register for one event',
+    goals: [
+      { id:'wg5', done:false, name:'Research 3 local events happening this month', crit:'List of 3 options' },
+      { id:'wg6', done:false, name:'Register for at least one event',               crit:'Confirmation email' },
+    ]
+  },
+  'Daily 10-min morning practice': {
+    weekGoal: 'Week 4 action: Practice every morning before phone',
+    goals: [
+      { id:'wg7', done:true,  name:'Morning practice Mon, Tue, Wed', crit:'3 days logged' },
+      { id:'wg8', done:false, name:'Morning practice Thu, Fri, Sat', crit:'5 of 7 days = pass' },
+    ]
+  },
+};
+
+function getTodayGoals() {
+  // flatten all weekly goals for count
+  return Object.values(WEEKLY_GOALS).flatMap(m => m.goals);
+}
+
+function updateTodayProgress() {
+  const all   = getTodayGoals();
+  const done  = all.filter(g => g.done).length;
+  const total = all.length;
+  const pct   = Math.round(done / total * 100);
+  document.getElementById('t-frac').innerHTML = done + '<span style="font-size:20px;opacity:.3;font-weight:700">/' + total + '</span>';
+  document.getElementById('t-pct').textContent = pct + '%';
+  document.getElementById('t-fill').style.width = pct + '%';
+}
+
+function toggleWeekGoal(msTitle, goalId) {
+  const g = WEEKLY_GOALS[msTitle].goals.find(x => x.id === goalId);
+  if (g) g.done = !g.done;
+  renderTodayMilestoneGroups();
+  updateTodayProgress();
+  renderMilestoneHealth();
+}
+
+function renderTodayMilestoneGroups() {
+  const container = document.getElementById('today-milestone-groups');
+  if (!container) return;
+
+  const s = SD[CURRENT_SEASON];
+  // only show active/in-progress milestones (not done ones)
+  const activeMilestones = s.ms.filter(m => !m.d);
+
+  container.innerHTML = activeMilestones.map(ms => {
+    const wg = WEEKLY_GOALS[ms.t];
+    if (!wg) return ''; // milestone has no weekly goals yet
+
+    const doneCnt  = wg.goals.filter(g => g.done).length;
+    const totalCnt = wg.goals.length;
+    const pct      = Math.round(doneCnt / totalCnt * 100);
+    const allDone  = doneCnt === totalCnt;
+
+    const goalRows = wg.goals.map(g => `
+      <div class="task" onclick="toggleWeekGoal('${ms.t}','${g.id}')" style="padding:11px 0">
+        <div class="tcb ${g.done ? 'done' : ''}">${g.done ? '✓' : ''}</div>
+        <div class="task-body">
+          <div class="task-name ${g.done ? 'done' : ''}">${g.name}</div>
+          <div class="task-crit">${g.crit}</div>
+        </div>
+      </div>`).join('<div style="height:1px;background:var(--border)"></div>');
+
+    return `
+      <div style="background:var(--s1);border:1px solid ${allDone ? ms.tc : 'var(--border)'};border-radius:var(--rl);overflow:hidden;transition:border-color .2s">
+        <!-- milestone header -->
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${ms.tc};flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Milestone → ${ms.tag}</div>
+            <div style="font-size:15px;font-weight:900;color:${ms.tc}">${ms.t}</div>
+            <div style="font-size:12px;color:var(--muted);font-weight:600;margin-top:2px">${wg.weekGoal}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:18px;font-weight:900;color:${allDone ? '#AADF4F' : ms.tc}">${doneCnt}/${totalCnt}</div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);margin-top:2px">${pct}% done</div>
+          </div>
+        </div>
+        <!-- week goals -->
+        <div style="padding:0 22px">
+          ${goalRows}
+        </div>
+        <!-- mini progress bar -->
+        <div style="height:3px;background:var(--s3);margin-top:0">
+          <div style="height:100%;width:${pct}%;background:${ms.tc};transition:width .3s ease"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // milestones with no weekly goals yet — show add prompt
+  const noGoalMilestones = activeMilestones.filter(ms => !WEEKLY_GOALS[ms.t]);
+  if (noGoalMilestones.length > 0) {
+    container.innerHTML += noGoalMilestones.map(ms => `
+      <div style="background:var(--s1);border:1.5px dashed rgba(255,255,255,.1);border-radius:var(--rl);padding:20px 22px;display:flex;align-items:center;gap:14px;opacity:.6">
+        <div style="width:10px;height:10px;border-radius:50%;background:${ms.tc};flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">${ms.tag}</div>
+          <div style="font-size:15px;font-weight:900;color:${ms.tc}">${ms.t}</div>
+          <div style="font-size:12px;color:var(--muted);font-weight:600;margin-top:3px">No weekly goals set yet for this milestone</div>
+        </div>
+        <button onclick="alert('In the full app, this opens the goal-setting flow for this milestone.')" style="background:rgba(170,223,79,.08);border:1px solid rgba(170,223,79,.2);color:#AADF4F;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;font-family:'Nunito',sans-serif;cursor:pointer;flex-shrink:0">+ Set weekly goals</button>
+      </div>`).join('');
+  }
+}
+
+function renderMilestoneHealth() {
+  const el = document.getElementById('ms-health');
+  if (!el) return;
+  const s = SD[CURRENT_SEASON];
+  el.innerHTML = s.ms.map(ms => {
+    const wg = WEEKLY_GOALS[ms.t];
+    let pct = ms.d ? 100 : 0;
+    if (wg) {
+      const done = wg.goals.filter(g=>g.done).length;
+      pct = Math.round(done / wg.goals.length * 100);
+    }
+    const statusColor = ms.d ? '#5DCAA5' : pct >= 50 ? ms.tc : '#F0739A';
+    return `
+      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:12px;font-weight:800;color:${ms.tc}">${ms.t.length > 28 ? ms.t.slice(0,28)+'…' : ms.t}</div>
+          <div style="font-size:11px;font-weight:900;color:${statusColor}">${ms.d ? '✓' : pct+'%'}</div>
+        </div>
+        <div style="height:4px;background:var(--s3);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${statusColor};border-radius:99px;transition:width .3s"></div>
+        </div>
+      </div>`;
+  }).join('').replace(/<div style="padding:10px 0;border-bottom:1px solid var\(--border\)">([^]*?)<\/div>(?=\s*$)/, (m) => m.replace('border-bottom:1px solid var(--border)', 'border-bottom:none'));
+}
+
+// ── TODAY WEEK STRIP ─────────────────────────
+const tws=document.getElementById('today-week-strip');
+for(let i=1;i<=12;i++){
+  const d=document.createElement('div');
+  d.className='swk '+(i<=3?'swk-done':i===4?'swk-current':'swk-up');
+  d.textContent=i;
+  tws.appendChild(d);
+}
+
+// ── MOOD DATE PILLS ──────────────────────────
+document.querySelectorAll('.mood-pill').forEach(p=>{
+  p.addEventListener('click',function(){
+    document.querySelectorAll('.mood-pill').forEach(x=>x.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+
+// init
+renderSeasonTabs();
+renderSeason('summer');
+renderTodayMilestoneGroups();
+updateTodayProgress();
+renderMilestoneHealth();
+</script>
+<!-- ADD GOAL MODAL -->
+<div id="add-goal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(6px)">
+  <div style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:32px;width:480px;max-width:90vw;position:relative">
+    <button onclick="document.getElementById('add-goal-modal').style.display='none'" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.07);border:none;color:rgba(255,255,255,0.5);width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+
+    <div style="font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">Tied to your vision</div>
+    <div style="font-size:20px;font-weight:900;margin-bottom:4px">Add a goal</div>
+    <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:24px;line-height:1.5">Every goal you add flows into a season, then breaks into weekly actions.</div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+
+      <div>
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px">Goal name</div>
+        <input type="text" placeholder="e.g. Run a 5K by Fall" style="width:100%;background:#252525;border:1.5px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px 14px;font-size:14px;font-family:'Nunito',sans-serif;font-weight:600;color:#F0EFEB;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#AADF4F'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'">
+      </div>
+
+      <div>
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px">Life area</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <button class="area-pick" onclick="pickArea(this,'#5DCAA5')" style="background:rgba(93,202,165,0.1);border:1.5px solid rgba(93,202,165,0.2);border-radius:10px;padding:9px;font-size:13px;font-weight:800;color:#5DCAA5;font-family:'Nunito',sans-serif;cursor:pointer">⚡ Physical</button>
+          <button class="area-pick" onclick="pickArea(this,'#A89EF5')" style="background:rgba(168,158,245,0.1);border:1.5px solid rgba(168,158,245,0.2);border-radius:10px;padding:9px;font-size:13px;font-weight:800;color:#A89EF5;font-family:'Nunito',sans-serif;cursor:pointer">🧠 Mind</button>
+          <button class="area-pick" onclick="pickArea(this,'#F5C542')" style="background:rgba(245,197,66,0.1);border:1.5px solid rgba(245,197,66,0.2);border-radius:10px;padding:9px;font-size:13px;font-weight:800;color:#F5C542;font-family:'Nunito',sans-serif;cursor:pointer">🌞 Spiritual</button>
+          <button class="area-pick" onclick="pickArea(this,'#AADF4F')" style="background:rgba(170,223,79,0.1);border:1.5px solid rgba(170,223,79,0.2);border-radius:10px;padding:9px;font-size:13px;font-weight:800;color:#AADF4F;font-family:'Nunito',sans-serif;cursor:pointer">🌿 Wealth</button>
+          <button class="area-pick" onclick="pickArea(this,'#5BA8F5')" style="background:rgba(91,168,245,0.1);border:1.5px solid rgba(91,168,245,0.2);border-radius:10px;padding:9px;font-size:13px;font-weight:800;color:#5BA8F5;font-family:'Nunito',sans-serif;cursor:pointer">🌍 Community</button>
+          <button class="area-pick" onclick="pickArea(this,'#F0739A')" style="background:rgba(240,115,154,0.1);border:1.5px solid rgba(240,115,154,0.2);border-radius:10px;padding:9px;font-size:13px;font-weight:800;color:#F0739A;font-family:'Nunito',sans-serif;cursor:pointer">❤️ Family</button>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px">Add to season</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          <button class="season-pick" onclick="pickSeasonGoal(this)" disabled style="background:rgba(170,223,79,0.04);border:1.5px solid rgba(255,255,255,.06);border-radius:10px;padding:9px 6px;font-size:12px;font-weight:800;color:var(--muted);font-family:'Nunito',sans-serif;cursor:not-allowed;opacity:.4">🌸 Spring<br><span style="font-size:9px;font-weight:700">Done</span></button>
+          <button class="season-pick active-season-pick" onclick="pickSeasonGoal(this)" style="background:rgba(93,202,165,0.12);border:2.5px solid rgba(93,202,165,0.5);border-radius:10px;padding:9px 6px;font-size:12px;font-weight:800;color:#5DCAA5;font-family:'Nunito',sans-serif;cursor:pointer">☀️ Summer<br><span style="font-size:9px;font-weight:700">Current ●</span></button>
+          <button class="season-pick" onclick="pickSeasonGoal(this)" disabled style="background:rgba(245,197,66,0.04);border:1.5px solid rgba(255,255,255,.06);border-radius:10px;padding:9px 6px;font-size:12px;font-weight:800;color:var(--muted);font-family:'Nunito',sans-serif;cursor:not-allowed;opacity:.4">🍂 Fall<br><span style="font-size:9px;font-weight:700">Locked 🔒</span></button>
+          <button class="season-pick" onclick="pickSeasonGoal(this)" disabled style="background:rgba(168,158,245,0.04);border:1.5px solid rgba(255,255,255,.06);border-radius:10px;padding:9px 6px;font-size:12px;font-weight:800;color:var(--muted);font-family:'Nunito',sans-serif;cursor:not-allowed;opacity:.4">❄️ Winter<br><span style="font-size:9px;font-weight:700">Locked 🔒</span></button>
+        </div>
+        <p style="font-size:11px;color:var(--muted);font-weight:600;margin-top:8px;line-height:1.5">Goals can only be added to the current season. Future seasons unlock when it's their time.</p>
+      </div>
+
+      <div>
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px">Success looks like</div>
+        <input type="text" placeholder="e.g. Complete a 5K race under 30 min" style="width:100%;background:#252525;border:1.5px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px 14px;font-size:14px;font-family:'Nunito',sans-serif;font-weight:600;color:#F0EFEB;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#AADF4F'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'">
+      </div>
+
+      <button onclick="document.getElementById('add-goal-modal').style.display='none'" style="background:var(--accent);color:#111;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:900;font-family:'Nunito',sans-serif;cursor:pointer;margin-top:4px;transition:opacity .12s" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">Save goal</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function pickArea(btn, color) {
+  document.querySelectorAll('.area-pick').forEach(b => b.style.borderWidth = '1.5px');
+  btn.style.borderWidth = '2.5px';
+}
+function pickSeasonGoal(btn) {
+  document.querySelectorAll('.season-pick').forEach(b => b.style.borderWidth = '1.5px');
+  btn.style.borderWidth = '2.5px';
+}
+// close on backdrop click
+document.getElementById('add-goal-modal').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+</script>
+
+</body>
+</html>
