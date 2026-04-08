@@ -163,10 +163,14 @@ export function Seasons() {
               }}
               className="flex flex-col gap-2 px-4 py-3 rounded-xl transition-all"
               style={{
-                background: isActive ? `${sCfg.color}18` : '#181818',
-                border: `1px solid ${isActive ? sCfg.color + '45' : 'rgba(255,255,255,0.07)'}`,
+                background: isActive && isCurrent
+                  ? `${sCfg.color}22`
+                  : isActive
+                  ? `${sCfg.color}14`
+                  : '#181818',
+                border: `1px solid ${isActive ? sCfg.color + '55' : 'rgba(255,255,255,0.07)'}`,
                 flex: isCurrent ? 2 : 1,
-                opacity: isDone ? (isActive ? 0.7 : 0.45) : isUpcoming && !isActive ? 0.55 : 1,
+                opacity: isDone ? (isActive ? 0.75 : 0.45) : isUpcoming && !isActive ? 0.55 : 1,
               }}
             >
               <div className="flex items-center justify-between gap-2">
