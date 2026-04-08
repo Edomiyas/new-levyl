@@ -56,8 +56,12 @@ function LifeTree({ level, badges }: { level: number; badges: { earned: boolean 
 
   return (
     <svg viewBox="0 0 140 180" width="120" height="155" style={{ overflow: 'visible' }}>
-      {/* Glow */}
-      <ellipse cx="70" cy="80" rx="50" ry="55" fill="#AADF4F" opacity="0.04" />
+      {/* Glow — outer halo */}
+      <ellipse cx="70" cy="80" rx="65" ry="70" fill="#AADF4F" opacity="0.03" />
+      {/* Glow — mid */}
+      <ellipse cx="70" cy="80" rx="52" ry="57" fill="#AADF4F" opacity="0.05" />
+      {/* Glow — inner */}
+      <ellipse cx="70" cy="80" rx="38" ry="42" fill="#AADF4F" opacity="0.07" />
       {/* Trunk */}
       <rect x="62" y="120" width="16" height="55" rx="6" fill="#6D4C41" />
       {/* Left branch */}
