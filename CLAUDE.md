@@ -6,13 +6,15 @@ Re-read this file at the start of every session.
 A life goal tracker built like a game. Users progress through 4 Seasons (12 weeks each) per year, each containing Milestones broken into Weekly Goals. XP and badges reward consistency.
 
 ## Hierarchy
-Vision → 6 Life Areas → 4 Seasons (12 weeks each) → Milestones → Weekly Goals
+Vision (describe ideal year) → Goals (dynamic categories) → Milestones → Assign to Seasons (12 weeks each) → Weekly Goals
 
 ## Core Rules
 - One active season at a time (no parallel seasons)
-- Goals (Milestones) can only be added from the Vision page, always locked to the current season
+- Vision page is the starting point: describe your ideal year, AI extracts dynamic goals
+- Each Goal has one or more Milestones; Milestones are assigned to specific Seasons
 - Season end with unfinished milestones = forced resolution modal (complete or carry forward)
 - Today view shows milestone-grouped weekly goals only for the active week
+- Goals have dynamic categories (not tied to fixed Life Areas)
 
 ## Stack
 - React 18 + TypeScript + Vite
@@ -54,7 +56,7 @@ Seasons:
 | /dashboard   | Dashboard | Life overview: rings, XP, stats, season sidebar      |
 | /today       | Today     | Mood + week progress + milestone-grouped weekly goals|
 | /seasons     | Seasons   | Season tabs + milestone list + detail panel          |
-| /vision      | Vision    | Vision statement + add milestone modal + year arc    |
+| /vision      | Vision    | 3-stage goal builder: write year → AI generate/manual add → expand & add milestones |
 
 ## Key Files
 | File                              | Purpose                         |
@@ -66,9 +68,31 @@ Seasons:
 | src/components/layout/TopNav.tsx  | Global navigation                |
 | src/pages/*.tsx                   | Page components                  |
 
+## Vision Page (3-Stage Flow)
+
+**Stage 1: Write your year**
+- User describes their ideal year as if already accomplished (past tense journal)
+- Label: "Describe your year as if it's already happened"
+- Placeholder: "It's December 31st. You're looking back on this year..."
+- Two action buttons:
+  - "Generate my goals from this →" (calls Anthropic API with claude-sonnet-4-20250514)
+  - "Add a goal manually" (toggles inline form)
+
+**Stage 2: Goals**
+- Shown after AI generation or manual add
+- Each Goal card displays: title, dynamic category tag, milestone count
+- Category colors auto-assigned from deterministic hash palette
+- User can delete, expand, or add another goal
+
+**Stage 3: Milestones (Inline)**
+- Click Goal card to expand and view/manage its milestones
+- Inline add milestone form at bottom of expanded goal
+- Milestones assigned to Seasons in the Seasons page later
+
 ## Coding Conventions
 - All styling via inline styles + Tailwind utility classes (dark-first, no light mode)
 - Colors from constants.ts, not hardcoded in components (except TopNav which is stable)
 - No App.css — only src/index.css with @import "tailwindcss" and @theme block
-- Zustand store actions: toggleGoalDone, addMilestone, updateVision
+- Zustand store actions: toggleGoalDone, addMilestone, updateVision, addGoal, addMilestoneToGoal, etc.
 - Supabase not yet wired — store uses mock data; wire in when auth is added
+- Anthropic API key: VITE_ANTHROPIC_API_KEY (env var, use fetch with x-api-key header)
