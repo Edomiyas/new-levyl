@@ -2,113 +2,131 @@ import { useAppStore } from '../store/appStore'
 import { LIFE_AREAS, SEASONS, SEASON_ORDER } from '../lib/constants'
 import type { LifeAreaKey } from '../types'
 
-// ─── Life Area Ring ───────────────────────────────────────────────────────────
+// ─── Arc Ring ─────────────────────────────────────────────────────────────────
 
-function LifeAreaRing({ areaKey, progress }: { areaKey: LifeAreaKey; progress: number }) {
-  const area = LIFE_AREAS[areaKey]
-  const r = 28
-  const circ = 2 * Math.PI * r
-  const offset = circ - (progress / 100) * circ
+function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+  const rad = (angleDeg * Math.PI) / 180
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
+}
+
+function ArcRing({
+  color,
+  progress,
+  label,
+  subtext,
+  needsFocus,
+}: {
+  color: string
+  progress: number
+  label: string
+  subtext: string
+  needsFocus?: boolean
+}) {
+  const cx = 50, cy = 52, r = 38, sw = 7
+  const startAngle = 135
+  const totalSweep = 270
+
+  const bgStart = polarToCartesian(cx, cy, r, startAngle)
+  const bgEnd = polarToCartesian(cx, cy, r, startAngle + totalSweep)
+  const bgPath = `M ${bgStart.x.toFixed(2)} ${bgStart.y.toFixed(2)} A ${r} ${r} 0 1 1 ${bgEnd.x.toFixed(2)} ${bgEnd.y.toFixed(2)}`
+
+  const sweep = (progress / 100) * totalSweep
+  const endAngle = startAngle + sweep
+  const progEnd = polarToCartesian(cx, cy, r, endAngle)
+  const largeArc = sweep > 180 ? 1 : 0
+  const progPath =
+    progress > 0
+      ? `M ${bgStart.x.toFixed(2)} ${bgStart.y.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${progEnd.x.toFixed(2)} ${progEnd.y.toFixed(2)}`
+      : ''
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative" style={{ width: 72, height: 72 }}>
-        <svg width="72" height="72" viewBox="0 0 72 72" style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
-          <circle
-            cx="36" cy="36" r={r} fill="none"
-            stroke={area.color} strokeWidth="6"
-            strokeDasharray={circ} strokeDashoffset={offset}
+    <div className="flex flex-col items-center gap-1">
+      <svg
+        width="86"
+        height="74"
+        viewBox="0 0 100 92"
+        style={{ overflow: 'visible' }}
+      >
+        <path
+          d={bgPath}
+          fill="none"
+          stroke="rgba(255,255,255,0.07)"
+          strokeWidth={sw}
+          strokeLinecap="round"
+        />
+        {progress > 0 && (
+          <path
+            d={progPath}
+            fill="none"
+            stroke={color}
+            strokeWidth={sw}
             strokeLinecap="round"
           />
-        </svg>
-        <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ fontSize: 18 }}
+        )}
+      </svg>
+      <div className="text-center -mt-1">
+        <p className="text-sm font-black" style={{ color }}>
+          {label}
+        </p>
+        <p className="text-2xl font-black leading-tight" style={{ color }}>
+          {progress}%
+        </p>
+        <p
+          className="text-[11px] mt-0.5"
+          style={{ color: needsFocus ? '#F5C542' : 'rgba(255,255,255,0.36)' }}
         >
-          {area.emoji}
-        </div>
-      </div>
-      <div className="text-center">
-        <p className="text-[11px] font-bold" style={{ color: area.color }}>{area.label}</p>
-        <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.36)' }}>{progress}%</p>
+          {needsFocus ? '⚠ ' : ''}
+          {subtext}
+        </p>
       </div>
     </div>
   )
 }
 
-// ─── Life Tree SVG ────────────────────────────────────────────────────────────
+// ─── Stat Card ────────────────────────────────────────────────────────────────
 
-function LifeTree({ level, badges }: { level: number; badges: { earned: boolean }[] }) {
-  const earnedCount = badges.filter((b) => b.earned).length
-  const fruitColors = [
-    LIFE_AREAS.physical.color,
-    LIFE_AREAS.mind.color,
-    LIFE_AREAS.spiritual.color,
-    LIFE_AREAS.wealth.color,
-    LIFE_AREAS.community.color,
-    LIFE_AREAS.family.color,
-  ]
-  const fruitPositions = [
-    { cx: 52, cy: 60 }, { cx: 88, cy: 55 }, { cx: 42, cy: 78 },
-    { cx: 95, cy: 72 }, { cx: 68, cy: 48 }, { cx: 58, cy: 92 },
-  ]
-
-  return (
-    <svg viewBox="0 0 140 180" width="120" height="155" style={{ overflow: 'visible' }}>
-      {/* Glow — outer halo */}
-      <ellipse cx="70" cy="80" rx="65" ry="70" fill="#AADF4F" opacity="0.03" />
-      {/* Glow — mid */}
-      <ellipse cx="70" cy="80" rx="52" ry="57" fill="#AADF4F" opacity="0.05" />
-      {/* Glow — inner */}
-      <ellipse cx="70" cy="80" rx="38" ry="42" fill="#AADF4F" opacity="0.07" />
-      {/* Trunk */}
-      <rect x="62" y="120" width="16" height="55" rx="6" fill="#6D4C41" />
-      {/* Left branch */}
-      <path d="M70 105 Q48 95 38 78" stroke="#6D4C41" strokeWidth="5" fill="none" strokeLinecap="round" />
-      {/* Right branch */}
-      <path d="M70 105 Q92 95 102 78" stroke="#6D4C41" strokeWidth="5" fill="none" strokeLinecap="round" />
-      {/* Foliage — bottom layer */}
-      <ellipse cx="70" cy="80" rx="55" ry="60" fill="#AADF4F" opacity="0.10" />
-      {/* Foliage — mid layer */}
-      <ellipse cx="70" cy="72" rx="42" ry="48" fill="#AADF4F" opacity="0.20" />
-      {/* Foliage — top layer */}
-      <ellipse cx="70" cy="65" rx="30" ry="36" fill="#AADF4F" opacity="0.35" />
-      {/* Fruits — one per earned badge */}
-      {fruitPositions.map((pos, i) =>
-        i < earnedCount && level >= 3 + i * 2 ? (
-          <circle key={i} cx={pos.cx} cy={pos.cy} r={5} fill={fruitColors[i]} opacity="0.9" />
-        ) : null
-      )}
-    </svg>
-  )
-}
-
-// ─── Stat Chip ────────────────────────────────────────────────────────────────
-
-function StatChip({
-  icon,
-  label,
+function StatCard({
   value,
+  label,
+  subtext,
   color,
 }: {
-  icon: string
-  label: string
   value: string
+  label: string
+  subtext: string
   color: string
 }) {
   return (
     <div
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-      style={{ background: `${color}14`, border: `1px solid ${color}30` }}
+      className="flex-1 rounded-2xl p-5 relative overflow-hidden"
+      style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
     >
-      <span style={{ fontSize: 13 }}>{icon}</span>
-      <div>
-        <p className="text-[9px] font-bold leading-none" style={{ color: 'rgba(255,255,255,0.4)' }}>
+      {/* Blob decoration */}
+      <div
+        style={{
+          position: 'absolute',
+          top: -24,
+          right: -24,
+          width: 100,
+          height: 100,
+          borderRadius: '50%',
+          background: color,
+          opacity: 0.13,
+          pointerEvents: 'none',
+        }}
+      />
+      <div className="relative">
+        <p
+          className="font-black leading-none"
+          style={{ fontSize: '2.75rem', color }}
+        >
+          {value}
+        </p>
+        <p className="text-sm font-bold mt-2" style={{ color: 'rgba(255,255,255,0.55)' }}>
           {label}
         </p>
-        <p className="text-[12px] font-black leading-tight" style={{ color }}>
-          {value}
+        <p className="text-[12px] mt-1" style={{ color }}>
+          {subtext}
         </p>
       </div>
     </div>
@@ -120,311 +138,278 @@ function StatChip({
 export function Dashboard() {
   const { user, seasons, badges } = useAppStore()
   const currentSeason = seasons.find((s) => s.key === user.currentSeason)!
-  const cfg = SEASONS[user.currentSeason]
-  const xpToNext = 3000
+
+  const xpToNext = 2000
+  const xpPct = Math.min(100, Math.round((user.xp / xpToNext) * 100))
 
   const lifeAreaProgress: Record<LifeAreaKey, number> = {
-    physical: 72,
-    mind: 45,
-    spiritual: 30,
-    wealth: 60,
-    community: 20,
-    family: 55,
+    physical: 74,
+    mind: 60,
+    spiritual: 45,
+    wealth: 55,
+    community: 18,
+    family: 50,
   }
 
-  const activeMilestones = currentSeason.milestones.filter((m) => m.status === 'active')
+  const overallProgress = 62
+  const activeGoalsCount = 14
 
-  const completedGoals = currentSeason.milestones.flatMap((m) =>
-    m.weeklyGoals.filter((g) => g.done)
-  ).length
-  const totalGoals = currentSeason.milestones.flatMap((m) => m.weeklyGoals).length
+  const earnedBadges = badges.filter((b) => b.earned).length
 
   return (
-    <div className="flex gap-6">
-      {/* ── LEFT MAIN ── */}
-      <div className="flex-1 flex flex-col gap-6 min-w-0">
+    <div className="flex flex-col gap-6">
 
-        {/* HERO CARD */}
-        <div
-          className="rounded-2xl p-6"
-          style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
-        >
-          <div className="flex items-start justify-between gap-4">
-            {/* Left: greeting + stats */}
-            <div className="flex-1 min-w-0">
-              <h1 className="text-3xl font-black" style={{ color: '#F0EFEB' }}>
-                Hey {user.name} 👋
-              </h1>
-              <p className="text-sm mt-1 mb-5" style={{ color: 'rgba(255,255,255,0.36)' }}>
-                Week {currentSeason.currentWeek} of{' '}
-                <span className="font-bold capitalize" style={{ color: cfg.color }}>
-                  {cfg.label}
-                </span>{' '}
-                season · {currentSeason.weeksDone} weeks done
-              </p>
+      {/* Page header */}
+      <div>
+        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.36)' }}>
+          Your life at a glance
+        </p>
+        <h1 className="text-3xl font-black" style={{ color: '#F0EFEB' }}>
+          Dashboard 📊
+        </h1>
+      </div>
 
-              {/* Stat chips */}
-              <div className="flex flex-wrap gap-2">
-                <StatChip icon="⚡" label="LEVEL" value={`LV ${user.level}`} color="#AADF4F" />
-                <StatChip
-                  icon="✨"
-                  label="XP"
-                  value={user.xp.toLocaleString()}
-                  color="#A89EF5"
-                />
-                <StatChip icon="🔥" label="STREAK" value={`${user.streak}d`} color="#F5C542" />
-                <StatChip
-                  icon="🎯"
-                  label="GOALS"
-                  value={`${completedGoals}/${totalGoals}`}
-                  color="#5DCAA5"
-                />
-              </div>
+      {/* Stat cards */}
+      <div className="flex gap-4">
+        <StatCard
+          value={`${overallProgress}%`}
+          label="Overall progress"
+          subtext="↑ 8% from last season"
+          color="#AADF4F"
+        />
+        <StatCard
+          value={`${user.streak}d`}
+          label="Current streak"
+          subtext="Personal best 🔥"
+          color="#F5C542"
+        />
+        <StatCard
+          value={`${activeGoalsCount}`}
+          label="Active goals"
+          subtext="Across 6 life areas"
+          color="#5DCAA5"
+        />
+        <StatCard
+          value={`${earnedBadges}/${badges.length}`}
+          label="Badges earned"
+          subtext={`${badges.length - earnedBadges} more to unlock`}
+          color="#A89EF5"
+        />
+      </div>
 
-              {/* XP bar */}
-              <div className="flex items-center gap-3 mt-5">
-                <span
-                  className="text-xs font-black px-2 py-0.5 rounded-md flex-shrink-0"
-                  style={{ background: 'rgba(170,223,79,0.15)', color: '#AADF4F' }}
-                >
-                  LV {user.level}
-                </span>
-                <div className="flex-1">
-                  <div
-                    className="h-2 rounded-full overflow-hidden"
-                    style={{ background: 'rgba(255,255,255,0.07)' }}
-                  >
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${Math.round((user.xp / xpToNext) * 100)}%`,
-                        background: 'linear-gradient(90deg, #AADF4F, #8BC34A)',
-                      }}
-                    />
-                  </div>
-                </div>
-                <span className="text-[11px] font-bold flex-shrink-0" style={{ color: 'rgba(255,255,255,0.36)' }}>
-                  {user.xp.toLocaleString()} / {xpToNext.toLocaleString()} XP
-                </span>
-              </div>
-            </div>
-
-            {/* Right: Life Tree with glow */}
+      {/* Life tree + Season progress */}
+      <div
+        className="rounded-2xl p-6"
+        style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <div className="flex gap-10">
+          {/* Left: tree */}
+          <div className="flex-1 flex flex-col gap-4 min-w-0">
+            {/* Level pill */}
             <div
-              className="flex-shrink-0 flex items-center justify-center relative"
-              style={{ width: 140 }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-black self-start"
+              style={{ background: 'rgba(170,223,79,0.12)', color: '#AADF4F', border: '1px solid rgba(170,223,79,0.2)' }}
             >
-              {/* Radial glow backdrop */}
+              ✦ Level {user.level} — Growing
+            </div>
+
+            {/* Plant emoji */}
+            <p style={{ fontSize: 64, lineHeight: 1 }}>🌿</p>
+
+            {/* Heading + desc */}
+            <div>
+              <h2 className="text-2xl font-black" style={{ color: '#F0EFEB' }}>
+                Your tree is growing
+              </h2>
+              <p className="text-sm mt-2 leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                Every completed goal adds a branch. Every season completed makes it bloom further.
+                Keep showing up and it will reach full bloom by Winter.
+              </p>
+            </div>
+
+            {/* XP bar */}
+            <div>
               <div
-                className="absolute inset-0 rounded-full"
-                style={{
-                  background: 'radial-gradient(ellipse 70% 80% at 50% 50%, rgba(170,223,79,0.18) 0%, rgba(170,223,79,0.06) 55%, transparent 100%)',
-                  filter: 'blur(8px)',
-                }}
-              />
-              <div style={{ filter: 'drop-shadow(0 0 18px rgba(170,223,79,0.55)) drop-shadow(0 0 6px rgba(170,223,79,0.35))', position: 'relative' }}>
-                <LifeTree level={user.level} badges={badges} />
+                className="h-2.5 rounded-full overflow-hidden"
+                style={{ background: 'rgba(255,255,255,0.07)' }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${xpPct}%`,
+                    background: 'linear-gradient(90deg, #AADF4F, #8BC34A)',
+                  }}
+                />
+              </div>
+              <div className="flex justify-between mt-1.5">
+                <span className="text-[12px] font-bold" style={{ color: '#AADF4F' }}>
+                  {user.xp.toLocaleString()} XP
+                </span>
+                <span className="text-[12px]" style={{ color: 'rgba(255,255,255,0.36)' }}>
+                  {xpToNext.toLocaleString()} XP to Level {user.level + 1}
+                </span>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* LIFE BALANCE */}
-        <div
-          className="rounded-xl p-5"
-          style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
-        >
-          <p className="text-sm font-bold mb-5" style={{ color: '#F0EFEB' }}>
-            Life Balance
-          </p>
-          <div className="flex justify-between">
-            {(Object.keys(LIFE_AREAS) as LifeAreaKey[]).map((key) => (
-              <LifeAreaRing key={key} areaKey={key} progress={lifeAreaProgress[key]} />
-            ))}
-          </div>
-        </div>
-
-        {/* ACTIVE MILESTONES */}
-        <div
-          className="rounded-xl p-5"
-          style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
-        >
-          <p className="text-sm font-bold mb-4" style={{ color: '#F0EFEB' }}>
-            Active Milestones
-          </p>
-          {activeMilestones.length === 0 ? (
-            <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.25)' }}>
-              No active milestones this season
+          {/* Right: Season progress */}
+          <div className="flex-shrink-0" style={{ width: 230 }}>
+            <p
+              className="text-[11px] font-black tracking-wider mb-4"
+              style={{ color: 'rgba(255,255,255,0.36)' }}
+            >
+              SEASON PROGRESS
             </p>
-          ) : (
-            <div className="flex flex-col gap-2.5">
-              {activeMilestones.map((ms) => {
-                const area = LIFE_AREAS[ms.lifeAreaKey]
-                const done = ms.weeklyGoals.filter((g) => g.done).length
-                const total = ms.weeklyGoals.length
-                const pct = total > 0 ? Math.round((done / total) * 100) : 0
+            <div className="flex flex-col gap-2">
+              {SEASON_ORDER.map((key) => {
+                const season = seasons.find((s) => s.key === key)!
+                const sCfg = SEASONS[key]
+                const isActive =
+                  season.status === 'current' || season.status === 'overdue'
+                const isDone = season.status === 'done'
+
                 return (
                   <div
-                    key={ms.id}
-                    className="rounded-xl p-3 flex items-center gap-3"
-                    style={{ background: '#202020' }}
+                    key={key}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                    style={{
+                      background: isActive ? `${sCfg.color}14` : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${isActive ? sCfg.color + '30' : 'transparent'}`,
+                    }}
                   >
-                    <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ background: area.bg, fontSize: 16 }}
-                    >
-                      {area.emoji}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate" style={{ color: '#F0EFEB' }}>
-                        {ms.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <div
-                          className="h-1.5 flex-1 rounded-full overflow-hidden"
-                          style={{ background: 'rgba(255,255,255,0.06)' }}
+                    <div className="flex items-center gap-2.5">
+                      <span style={{ fontSize: 16 }}>{sCfg.emoji}</span>
+                      <div>
+                        <p
+                          className="text-sm font-black"
+                          style={{
+                            color: isActive
+                              ? sCfg.color
+                              : isDone
+                              ? 'rgba(255,255,255,0.5)'
+                              : 'rgba(255,255,255,0.25)',
+                          }}
                         >
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${pct}%`, background: area.color }}
-                          />
-                        </div>
-                        <span
-                          className="text-[10px] font-bold flex-shrink-0"
-                          style={{ color: area.color }}
+                          {sCfg.label}
+                        </p>
+                        <p
+                          className="text-[10px]"
+                          style={{ color: 'rgba(255,255,255,0.28)' }}
                         >
-                          {pct}%
-                        </span>
+                          {sCfg.dateRange}
+                        </p>
                       </div>
                     </div>
                     <span
-                      className="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0"
-                      style={{ background: area.bg, color: area.color }}
+                      className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                      style={{
+                        background: isActive
+                          ? `${sCfg.color}20`
+                          : isDone
+                          ? 'rgba(170,223,79,0.1)'
+                          : 'rgba(255,255,255,0.06)',
+                        color: isActive
+                          ? sCfg.color
+                          : isDone
+                          ? '#AADF4F'
+                          : 'rgba(255,255,255,0.3)',
+                      }}
                     >
-                      {area.label}
+                      {isDone ? '✓ Done' : isActive ? `Wk ${season.currentWeek ?? 1}` : 'Soon'}
                     </span>
                   </div>
                 )
               })}
             </div>
-          )}
-        </div>
-
-        {/* VISION SNIPPET */}
-        <div
-          className="rounded-xl p-5"
-          style={{
-            background: 'rgba(170,223,79,0.05)',
-            border: '1px solid rgba(170,223,79,0.15)',
-          }}
-        >
-          <p className="text-xs font-black mb-2.5 tracking-wider" style={{ color: '#AADF4F' }}>
-            YOUR VISION
-          </p>
-          <p className="text-sm leading-relaxed italic" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            "{user.visionStatement}"
-          </p>
+          </div>
         </div>
       </div>
 
-      {/* ── RIGHT SIDEBAR ── */}
-      <div className="flex-shrink-0 flex flex-col gap-4" style={{ width: 288 }}>
-
-        {/* YEAR ARC */}
-        <div
-          className="rounded-xl p-4"
-          style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
+      {/* Life area health */}
+      <div
+        className="rounded-2xl p-6"
+        style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <p
+          className="text-[11px] font-black tracking-wider mb-6"
+          style={{ color: 'rgba(255,255,255,0.36)' }}
         >
-          <p className="text-xs font-black mb-3 tracking-wider" style={{ color: 'rgba(255,255,255,0.36)' }}>
-            YEAR ARC
-          </p>
-          <div className="flex flex-col gap-2">
-            {SEASON_ORDER.map((key) => {
-              const season = seasons.find((s) => s.key === key)!
-              const sCfg = SEASONS[key]
-              const isCurrent = season.status === 'current'
-              const isDone = season.status === 'done'
+          LIFE AREA HEALTH
+        </p>
+        <div className="flex justify-between">
+          {(Object.entries(lifeAreaProgress) as [LifeAreaKey, number][]).map(
+            ([key, pct]) => {
+              const area = LIFE_AREAS[key]
+              const isLow = pct < 25
+              const activeCount = currentSeason.milestones.filter(
+                (m) => m.lifeAreaKey === key && m.status === 'active'
+              ).length
+              const subtext = isLow
+                ? 'Needs focus'
+                : `${activeCount} active goal${activeCount !== 1 ? 's' : ''}`
 
               return (
-                <div
+                <ArcRing
                   key={key}
-                  className="rounded-lg p-3"
-                  style={{
-                    background: isCurrent ? `${sCfg.color}12` : '#202020',
-                    border: `1px solid ${isCurrent ? sCfg.color + '35' : 'transparent'}`,
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span
-                      className="text-xs font-bold capitalize"
-                      style={{ color: isCurrent ? sCfg.color : isDone ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.25)' }}
-                    >
-                      {sCfg.label}
-                    </span>
-                    <span
-                      className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                      style={{
-                        background: isCurrent ? `${sCfg.color}20` : 'transparent',
-                        color: isCurrent ? sCfg.color : 'rgba(255,255,255,0.3)',
-                      }}
-                    >
-                      {isDone ? 'Done ✓' : isCurrent ? `Wk ${season.currentWeek}` : 'Soon'}
-                    </span>
-                  </div>
-                  <div
-                    className="h-1 rounded-full overflow-hidden"
-                    style={{ background: 'rgba(255,255,255,0.06)' }}
-                  >
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${Math.round((season.weeksDone / 12) * 100)}%`,
-                        background: sCfg.color,
-                        opacity: isCurrent || isDone ? 1 : 0.4,
-                      }}
-                    />
-                  </div>
-                </div>
+                  color={area.color}
+                  progress={pct}
+                  label={area.label}
+                  subtext={subtext}
+                  needsFocus={isLow}
+                />
               )
-            })}
-          </div>
+            }
+          )}
         </div>
+      </div>
 
-        {/* BADGES */}
-        <div
-          className="rounded-xl p-4"
-          style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
-        >
-          <p className="text-xs font-black mb-3 tracking-wider" style={{ color: 'rgba(255,255,255,0.36)' }}>
-            BADGES
+      {/* Badges */}
+      <div
+        className="rounded-2xl p-6"
+        style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <div className="flex items-baseline gap-2 mb-6">
+          <h3 className="text-lg font-black" style={{ color: '#F0EFEB' }}>
+            Badges
+          </h3>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.36)' }}>
+            {earnedBadges} earned · {badges.length - earnedBadges} locked
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            {badges.map((badge) => (
+        </div>
+        <div className="flex gap-3 justify-between">
+          {badges.map((badge) => (
+            <div
+              key={badge.id}
+              className="flex flex-col items-center gap-2"
+              style={{ opacity: badge.earned ? 1 : 0.35 }}
+            >
               <div
-                key={badge.id}
-                className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all"
+                className="w-16 h-16 rounded-full flex items-center justify-center"
                 style={{
-                  background: badge.earned ? '#202020' : 'rgba(255,255,255,0.02)',
-                  border: badge.earned
-                    ? '1px solid rgba(255,255,255,0.08)'
-                    : '1px solid rgba(255,255,255,0.03)',
-                  opacity: badge.earned ? 1 : 0.35,
+                  background: badge.earned
+                    ? 'rgba(255,255,255,0.08)'
+                    : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${
+                    badge.earned
+                      ? 'rgba(255,255,255,0.12)'
+                      : 'rgba(255,255,255,0.06)'
+                  }`,
                 }}
-                title={badge.label}
               >
-                <span style={{ fontSize: 22 }}>{badge.icon}</span>
-                <span
-                  className="text-[9px] font-bold text-center leading-tight"
-                  style={{ color: badge.earned ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.3)' }}
-                >
-                  {badge.label}
-                </span>
+                <span style={{ fontSize: 28 }}>{badge.icon}</span>
               </div>
-            ))}
-          </div>
-          <p className="text-[10px] mt-3 text-center" style={{ color: 'rgba(255,255,255,0.2)' }}>
-            {badges.filter((b) => b.earned).length}/{badges.length} earned
-          </p>
+              <span
+                className="text-[10px] font-bold text-center"
+                style={{
+                  color: badge.earned
+                    ? 'rgba(255,255,255,0.55)'
+                    : 'rgba(255,255,255,0.25)',
+                }}
+              >
+                {badge.label}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

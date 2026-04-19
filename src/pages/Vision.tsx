@@ -1,422 +1,426 @@
 import { useState } from 'react'
-import { Plus, X, Wand2, Check } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
-import { LIFE_AREAS, SEASONS, SEASON_ORDER } from '../lib/constants'
-import type { LifeAreaKey, Milestone } from '../types'
+import type { Goal, Milestone } from '../types'
 
-const LIFE_AREA_KEYS = Object.keys(LIFE_AREAS) as LifeAreaKey[]
+// Category color palette
+const CATEGORY_COLORS = [
+  '#5DCAA5', '#A89EF5', '#F5C542', '#AADF4F',
+  '#5BA8F5', '#F0739A', '#FF8C42', '#64C8E8'
+]
 
-// ─── Add Milestone Modal ──────────────────────────────────────────────────────
+// Generate deterministic color based on category name
+const getCategoryColor = (category: string): string => {
+  let hash = 0
+  for (let i = 0; i < category.length; i++) {
+    hash = ((hash << 5) - hash) + category.charCodeAt(i)
+    hash = hash & hash // Convert to 32bit integer
+  }
+  const index = Math.abs(hash) % CATEGORY_COLORS.length
+  return CATEGORY_COLORS[index]
+}
 
-function AddMilestoneModal({
-  onClose,
-  onSubmit,
-  currentSeasonKey,
-  currentWeek,
-}: {
-  onClose: () => void
-  onSubmit: (lifeAreaKey: LifeAreaKey, title: string) => void
-  currentSeasonKey: string
-  currentWeek: number | null
-}) {
-  const [selectedArea, setSelectedArea] = useState<LifeAreaKey>('physical')
-  const [title, setTitle] = useState('')
+interface ParsedGoalsResponse {
+  goals: Array<{
+    title: string
+    category: string
+    rationale: string
+  }>
+}
 
-  const cfg = SEASONS[currentSeasonKey as keyof typeof SEASONS]
-  const canSubmit = title.trim().length > 0
+export function Vision() {
+  const { user, addGoal, addMilestoneToGoal, deleteGoal, updateGoal, deleteMilestoneFromGoal } = useAppStore()
+  const [yearDescription, setYearDescription] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generationError, setGenerationError] = useState('')
+  const [showManualForm, setShowManualForm] = useState(false)
+  const [manualGoalTitle, setManualGoalTitle] = useState('')
+  const [manualGoalCategory, setManualGoalCategory] = useState('')
+  const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null)
+  const [newMilestoneText, setNewMilestoneText] = useState<Record<string, string>>({})
 
-  const handleSubmit = () => {
-    if (!canSubmit) return
-    onSubmit(selectedArea, title.trim())
+  const handleGenerateGoals = async () => {
+    if (!yearDescription.trim()) return
+
+    setIsGenerating(true)
+    setGenerationError('')
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY || '',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: `You are a goal-setting assistant. The user will describe their ideal year. Extract specific, actionable goals from their description. Each goal must have a title and a category. Categories are dynamic — infer them from what the user wrote (e.g. 'Health & Fitness', 'Financial', 'Family', 'Career', 'Relationships', 'Learning', 'Spiritual', 'Creative', 'Travel', 'Community'). Do not use a fixed list — only use categories that genuinely appear in what the user wrote. Return ONLY valid JSON, no markdown, no explanation. Format: { "goals": [{ "title": string, "category": string, "rationale": string }] }`,
+          messages: [{ role: 'user', content: yearDescription }],
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const content = data.content[0].text
+      const parsed: ParsedGoalsResponse = JSON.parse(content)
+
+      // Add each generated goal
+      parsed.goals.forEach((g) => {
+        const goal: Goal = {
+          id: `goal-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          title: g.title,
+          category: g.category,
+          categoryColor: getCategoryColor(g.category),
+          milestones: [],
+          createdFrom: 'ai',
+        }
+        addGoal(goal)
+      })
+
+      setIsGenerating(false)
+    } catch (err) {
+      setGenerationError(err instanceof Error ? err.message : 'Failed to generate goals')
+      setIsGenerating(false)
+    }
+  }
+
+  const handleAddManualGoal = () => {
+    if (!manualGoalTitle.trim() || !manualGoalCategory.trim()) return
+
+    const goal: Goal = {
+      id: `goal-${Date.now()}`,
+      title: manualGoalTitle.trim(),
+      category: manualGoalCategory.trim(),
+      categoryColor: getCategoryColor(manualGoalCategory.trim()),
+      milestones: [],
+      createdFrom: 'manual',
+    }
+    addGoal(goal)
+    setManualGoalTitle('')
+    setManualGoalCategory('')
+    setShowManualForm(false)
+  }
+
+  const handleAddMilestone = (goalId: string) => {
+    const text = newMilestoneText[goalId]?.trim()
+    if (!text) return
+
+    const milestone: Milestone = {
+      id: `ms-${Date.now()}`,
+      seasonKey: user.currentSeason,
+      lifeAreaKey: 'physical', // Default, user can reassign in Seasons page
+      title: text,
+      status: 'not_started',
+      weeklyGoals: [],
+    }
+    addMilestoneToGoal(goalId, milestone)
+    setNewMilestoneText((prev) => ({ ...prev, [goalId]: '' }))
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.8)' }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div
-        className="w-full rounded-2xl p-6 flex flex-col gap-5"
-        style={{
-          maxWidth: 440,
-          background: '#181818',
-          border: '1px solid rgba(255,255,255,0.1)',
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-lg font-black" style={{ color: '#F0EFEB' }}>
-              Add Milestone
-            </h2>
-            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.36)' }}>
-              Locked to{' '}
-              <span className="font-black capitalize" style={{ color: cfg.color }}>
-                {cfg.label}
-              </span>{' '}
-              season
-            </p>
-          </div>
+    <div className="flex flex-col gap-8">
+      {/* Page header */}
+      <div>
+        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.36)' }}>Your foundation</p>
+        <h1 className="text-3xl font-black" style={{ color: '#F0EFEB' }}>Vision 🎯</h1>
+      </div>
+
+      {/* STAGE 1: Write your year */}
+      <div className="flex flex-col gap-3">
+        <label className="text-sm font-black" style={{ color: '#F0EFEB' }}>
+          Describe your year as if it's already happened
+        </label>
+        <textarea
+          value={yearDescription}
+          onChange={(e) => setYearDescription(e.target.value)}
+          placeholder="It's December 31st. You're looking back on this year. What did you accomplish? How did you feel? What changed? Write it all out — big and small..."
+          className="w-full rounded-2xl px-4 py-4 text-sm font-medium outline-none resize-none"
+          rows={8}
+          style={{
+            background: '#181818',
+            border: '1px solid rgba(255,255,255,0.07)',
+            color: '#F0EFEB',
+            fontFamily: 'Nunito, sans-serif',
+          }}
+        />
+        <div className="flex gap-3">
           <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ color: 'rgba(255,255,255,0.4)' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'transparent')}
+            onClick={handleGenerateGoals}
+            disabled={!yearDescription.trim() || isGenerating}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black text-sm transition-all"
+            style={{
+              background: !yearDescription.trim() || isGenerating ? '#AADF4F33' : '#AADF4F',
+              color: !yearDescription.trim() || isGenerating ? 'rgba(255,255,255,0.3)' : '#0F0F0F',
+              cursor: !yearDescription.trim() || isGenerating ? 'not-allowed' : 'pointer',
+            }}
           >
-            <X size={18} />
+            {isGenerating && <Loader2 size={16} className="animate-spin" />}
+            Generate my goals from this →
+          </button>
+          <button
+            onClick={() => setShowManualForm(!showManualForm)}
+            className="px-4 py-3 rounded-xl font-black text-sm transition-all"
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.07)',
+              color: 'rgba(255,255,255,0.5)',
+            }}
+          >
+            Add a goal manually
           </button>
         </div>
-
-        {/* Life area picker */}
-        <div>
-          <label className="text-[11px] font-black tracking-wider block mb-2" style={{ color: 'rgba(255,255,255,0.36)' }}>
-            LIFE AREA
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            {LIFE_AREA_KEYS.map((key) => {
-              const area = LIFE_AREAS[key]
-              const isSelected = selectedArea === key
-              return (
-                <button
-                  key={key}
-                  onClick={() => setSelectedArea(key)}
-                  className="flex items-center gap-2 p-2.5 rounded-xl transition-all"
-                  style={{
-                    background: isSelected ? area.bg : 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${isSelected ? area.color + '55' : 'rgba(255,255,255,0.06)'}`,
-                  }}
-                >
-                  <span style={{ fontSize: 15 }}>{area.emoji}</span>
-                  <span
-                    className="text-xs font-bold"
-                    style={{ color: isSelected ? area.color : 'rgba(255,255,255,0.4)' }}
-                  >
-                    {area.label}
-                  </span>
-                </button>
-              )
-            })}
+        {generationError && (
+          <div
+            className="rounded-xl p-3 text-sm"
+            style={{ background: 'rgba(240,120,120,0.1)', color: '#FF6B6B' }}
+          >
+            {generationError}
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Title input */}
-        <div>
-          <label className="text-[11px] font-black tracking-wider block mb-2" style={{ color: 'rgba(255,255,255,0.36)' }}>
-            MILESTONE TITLE
-          </label>
+      {/* Manual goal form */}
+      {showManualForm && (
+        <div
+          className="rounded-2xl p-5 flex flex-col gap-3"
+          style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <p className="text-sm font-black" style={{ color: '#F0EFEB' }}>Add a goal manually</p>
           <input
             type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-            placeholder="e.g. Run a marathon under 4 hours"
-            autoFocus
-            className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+            value={manualGoalTitle}
+            onChange={(e) => setManualGoalTitle(e.target.value)}
+            placeholder="What's the goal?"
+            className="px-4 py-3 rounded-xl text-sm outline-none"
             style={{
               background: '#202020',
-              border: `1px solid ${title ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)'}`,
+              border: '1px solid rgba(255,255,255,0.07)',
               color: '#F0EFEB',
               fontFamily: 'Nunito, sans-serif',
             }}
           />
-        </div>
-
-        {/* Season info box */}
-        <div
-          className="rounded-xl p-3 flex items-center gap-2.5"
-          style={{ background: `${cfg.color}10`, border: `1px solid ${cfg.color}20` }}
-        >
-          <span style={{ fontSize: 16 }}>📅</span>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            Adding to{' '}
-            <span className="font-black capitalize" style={{ color: cfg.color }}>
-              {cfg.label}
-            </span>
-            {' '}· Week {currentWeek ?? 1} of 12
-          </p>
-        </div>
-
-        {/* Submit */}
-        <button
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          className="w-full py-3 rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all"
-          style={{
-            background: canSubmit ? '#AADF4F' : 'rgba(255,255,255,0.06)',
-            color: canSubmit ? '#0F0F0F' : 'rgba(255,255,255,0.2)',
-            cursor: canSubmit ? 'pointer' : 'not-allowed',
-          }}
-        >
-          {canSubmit && <Check size={15} />}
-          Add Milestone
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ─── Vision Page ──────────────────────────────────────────────────────────────
-
-export function Vision() {
-  const { user, seasons, updateVision, addMilestone } = useAppStore()
-  const [visionText, setVisionText] = useState(user.visionStatement)
-  const [isDirty, setIsDirty] = useState(false)
-  const [showModal, setShowModal] = useState(false)
-
-  const currentSeason = seasons.find((s) => s.key === user.currentSeason)!
-
-  const totalMilestones = seasons.flatMap((s) => s.milestones).length
-  const doneMilestones = seasons
-    .flatMap((s) => s.milestones)
-    .filter((m) => m.status === 'done').length
-
-  const handleSave = () => {
-    updateVision(visionText)
-    setIsDirty(false)
-  }
-
-  const handleAddMilestone = (lifeAreaKey: LifeAreaKey, title: string) => {
-    const ms: Milestone = {
-      id: `ms-${Date.now()}`,
-      seasonKey: user.currentSeason,
-      lifeAreaKey,
-      title,
-      status: 'not_started',
-      weeklyGoals: [],
-    }
-    addMilestone(ms)
-    setShowModal(false)
-  }
-
-  return (
-    <div className="flex flex-col gap-8" style={{ maxWidth: '48rem' }}>
-
-      {/* ── HEADER ── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black" style={{ color: '#F0EFEB' }}>
-            Vision
-          </h1>
-          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.36)' }}>
-            Your north star — revisit often
-          </p>
-        </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black transition-all flex-shrink-0"
-          style={{
-            background: '#AADF4F',
-            color: '#0F0F0F',
-            boxShadow: '0 4px 16px rgba(170,223,79,0.25)',
-          }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = '0.9')}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = '1')}
-        >
-          <Plus size={16} />
-          Add Milestone
-        </button>
-      </div>
-
-      {/* ── VISION TEXTAREA ── */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ border: '1px solid rgba(255,255,255,0.07)' }}
-      >
-        <div
-          className="px-5 py-3 flex items-center justify-between"
-          style={{ background: '#181818', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
-        >
-          <p className="text-[11px] font-black tracking-wider" style={{ color: 'rgba(255,255,255,0.36)' }}>
-            VISION STATEMENT
-          </p>
-          <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={manualGoalCategory}
+            onChange={(e) => setManualGoalCategory(e.target.value)}
+            placeholder="Category (e.g. Health, Career, Family)"
+            className="px-4 py-3 rounded-xl text-sm outline-none"
+            style={{
+              background: '#202020',
+              border: '1px solid rgba(255,255,255,0.07)',
+              color: '#F0EFEB',
+              fontFamily: 'Nunito, sans-serif',
+            }}
+          />
+          <div className="flex gap-2">
             <button
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-              style={{ background: 'rgba(168,158,245,0.12)', color: '#A89EF5' }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = '0.8')}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = '1')}
+              onClick={handleAddManualGoal}
+              disabled={!manualGoalTitle.trim() || !manualGoalCategory.trim()}
+              className="flex-1 py-2.5 rounded-lg font-black text-sm transition-all"
+              style={{
+                background:
+                  manualGoalTitle.trim() && manualGoalCategory.trim()
+                    ? '#AADF4F'
+                    : 'rgba(255,255,255,0.06)',
+                color:
+                  manualGoalTitle.trim() && manualGoalCategory.trim()
+                    ? '#0F0F0F'
+                    : 'rgba(255,255,255,0.2)',
+              }}
             >
-              <Wand2 size={12} />
-              Generate with AI
+              Save goal
             </button>
-            {isDirty && (
-              <button
-                onClick={handleSave}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all"
-                style={{ background: '#AADF4F', color: '#0F0F0F' }}
-              >
-                <Check size={12} />
-                Save
-              </button>
-            )}
+            <button
+              onClick={() => setShowManualForm(false)}
+              className="px-4 py-2.5 rounded-lg font-black text-sm"
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                color: 'rgba(255,255,255,0.4)',
+              }}
+            >
+              Cancel
+            </button>
           </div>
         </div>
-        <textarea
-          value={visionText}
-          onChange={(e) => {
-            setVisionText(e.target.value)
-            setIsDirty(true)
-          }}
-          rows={5}
-          className="w-full p-5 resize-none text-sm leading-relaxed outline-none"
-          style={{
-            background: '#181818',
-            color: '#F0EFEB',
-            fontFamily: 'Nunito, sans-serif',
-          }}
-          placeholder="Write your vision for life here… Who do you want to become? What does your ideal life look like? What will you have built in 10 years?"
-        />
-      </div>
+      )}
 
-      {/* ── YEAR ARC GRID ── */}
-      <div>
-        <p className="text-[11px] font-black tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.36)' }}>
-          YEAR ARC
-        </p>
-        <div className="grid grid-cols-4 gap-3">
-          {SEASON_ORDER.map((key) => {
-            const season = seasons.find((s) => s.key === key)!
-            const cfg = SEASONS[key]
-            const isCurrent = season.status === 'current'
-            const isDone = season.status === 'done'
-            const msDone = season.milestones.filter((m) => m.status === 'done').length
-            const msTotal = season.milestones.length
-            const pct = Math.round((season.weeksDone / 12) * 100)
+      {/* STAGE 2: Goals */}
+      {user.goals.length > 0 && (
+        <div className="flex flex-col gap-4">
+          <h2 className="text-lg font-black" style={{ color: '#F0EFEB' }}>
+            Your goals for the year
+          </h2>
 
-            return (
-              <div
-                key={key}
-                className="rounded-xl p-4 flex flex-col gap-3"
-                style={{
-                  background: isCurrent ? `${cfg.color}10` : '#181818',
-                  border: `1px solid ${isCurrent ? cfg.color + '30' : 'rgba(255,255,255,0.07)'}`,
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <p
-                    className="text-sm font-black capitalize"
+          <div className="flex flex-col gap-3">
+            {user.goals.map((goal) => {
+              const isExpanded = expandedGoalId === goal.id
+              const milestonesCount = goal.milestones.length
+
+              return (
+                <div key={goal.id}>
+                  <button
+                    onClick={() => setExpandedGoalId(isExpanded ? null : goal.id)}
+                    className="w-full rounded-2xl p-5 text-left transition-all"
                     style={{
-                      color: isCurrent ? cfg.color : isDone ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.25)',
+                      background: '#181818',
+                      border: isExpanded
+                        ? `1px solid ${goal.categoryColor}4D`
+                        : '1px solid rgba(255,255,255,0.07)',
+                      cursor: 'pointer',
                     }}
                   >
-                    {cfg.label}
-                  </p>
-                  {isCurrent && (
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        background: cfg.color,
-                        boxShadow: `0 0 6px ${cfg.color}`,
-                      }}
-                    />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-base font-bold" style={{ color: '#F0EFEB' }}>
+                          {goal.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span
+                            className="text-[10px] font-black px-2.5 py-1 rounded-full"
+                            style={{
+                              background: `${goal.categoryColor}1F`,
+                              color: goal.categoryColor,
+                            }}
+                          >
+                            {goal.category}
+                          </span>
+                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            {milestonesCount} {milestonesCount === 1 ? 'milestone' : 'milestones'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteGoal(goal.id)
+                          }}
+                          className="p-1.5 rounded-lg transition-all"
+                          style={{
+                            background: 'rgba(255,255,255,0.05)',
+                            color: 'rgba(255,255,255,0.3)',
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        {isExpanded ? (
+                          <ChevronUp size={16} style={{ color: goal.categoryColor }} />
+                        ) : (
+                          <ChevronDown size={16} style={{ color: 'rgba(255,255,255,0.3)' }} />
+                        )}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* STAGE 3: Milestones (expanded) */}
+                  {isExpanded && (
+                    <div className="px-5 pt-3 pb-5 flex flex-col gap-3">
+                      {goal.milestones.length === 0 ? (
+                        <p
+                          className="text-sm py-3"
+                          style={{ color: 'rgba(255,255,255,0.28)', textAlign: 'center' }}
+                        >
+                          No milestones yet
+                        </p>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {goal.milestones.map((ms) => (
+                            <div
+                              key={ms.id}
+                              className="flex items-center justify-between gap-2 p-2 rounded-lg"
+                              style={{
+                                background: '#202020',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                              }}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p
+                                  className="text-sm"
+                                  style={{ color: 'rgba(255,255,255,0.8)' }}
+                                >
+                                  {ms.title}
+                                </p>
+                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                                  {ms.status === 'not_started'
+                                    ? 'Not started'
+                                    : ms.status === 'active'
+                                    ? 'Active'
+                                    : 'Done'}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => deleteMilestoneFromGoal(goal.id, ms.id)}
+                                className="p-1 rounded text-xs"
+                                style={{ color: 'rgba(255,255,255,0.3)' }}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add milestone form */}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newMilestoneText[goal.id] || ''}
+                          onChange={(e) =>
+                            setNewMilestoneText((prev) => ({
+                              ...prev,
+                              [goal.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="Add a milestone..."
+                          className="flex-1 px-3 py-2 rounded-lg text-xs outline-none"
+                          style={{
+                            background: '#181818',
+                            border: '1px solid rgba(255,255,255,0.07)',
+                            color: '#F0EFEB',
+                            fontFamily: 'Nunito, sans-serif',
+                          }}
+                        />
+                        <button
+                          onClick={() => handleAddMilestone(goal.id)}
+                          disabled={!newMilestoneText[goal.id]?.trim()}
+                          className="px-3 py-2 rounded-lg font-bold text-xs flex items-center gap-1 transition-all"
+                          style={{
+                            background: newMilestoneText[goal.id]?.trim()
+                              ? goal.categoryColor
+                              : 'rgba(255,255,255,0.06)',
+                            color: newMilestoneText[goal.id]?.trim()
+                              ? '#0F0F0F'
+                              : 'rgba(255,255,255,0.2)',
+                          }}
+                        >
+                          <Plus size={12} />
+                          Add
+                        </button>
+                      </div>
+                    </div>
                   )}
-                  {isDone && (
-                    <span style={{ fontSize: 13 }}>✓</span>
-                  )}
                 </div>
+              )
+            })}
+          </div>
 
-                <div>
-                  <div
-                    className="h-1.5 rounded-full overflow-hidden mb-1.5"
-                    style={{ background: 'rgba(255,255,255,0.06)' }}
-                  >
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${pct}%`,
-                        background: cfg.color,
-                        opacity: isCurrent || isDone ? 1 : 0.4,
-                      }}
-                    />
-                  </div>
-                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                    {season.weeksDone}/12 weeks
-                  </p>
-                </div>
-
-                <div>
-                  <p
-                    className="text-2xl font-black"
-                    style={{ color: isCurrent ? cfg.color : isDone ? '#F0EFEB' : 'rgba(255,255,255,0.25)' }}
-                  >
-                    {msTotal}
-                  </p>
-                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                    milestones · {msDone} done
-                  </p>
-                </div>
-              </div>
-            )
-          })}
+          <button
+            onClick={() => setShowManualForm(!showManualForm)}
+            className="flex items-center justify-center gap-2 py-3 rounded-xl font-black text-sm transition-all"
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.07)',
+              color: 'rgba(255,255,255,0.5)',
+            }}
+          >
+            <Plus size={14} />
+            Add another goal
+          </button>
         </div>
-      </div>
-
-      {/* ── ANNUAL PROGRESS ── */}
-      <div
-        className="rounded-xl p-5"
-        style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
-      >
-        <div className="flex justify-between items-center mb-5">
-          <p className="text-sm font-bold" style={{ color: '#F0EFEB' }}>
-            Annual Progress
-          </p>
-          <p className="text-sm font-black" style={{ color: '#AADF4F' }}>
-            {doneMilestones}/{totalMilestones} milestones
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3.5">
-          {LIFE_AREA_KEYS.map((key) => {
-            const area = LIFE_AREAS[key]
-            const allMs = seasons.flatMap((s) =>
-              s.milestones.filter((m) => m.lifeAreaKey === key)
-            )
-            const doneMs = allMs.filter((m) => m.status === 'done').length
-            const pct = allMs.length > 0 ? Math.round((doneMs / allMs.length) * 100) : 0
-
-            return (
-              <div key={key} className="flex items-center gap-3">
-                <span className="flex-shrink-0" style={{ fontSize: 14, width: 20 }}>
-                  {area.emoji}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                      {area.label}
-                    </span>
-                    <span className="text-xs font-black" style={{ color: area.color }}>
-                      {doneMs}/{allMs.length}
-                    </span>
-                  </div>
-                  <div
-                    className="h-1.5 rounded-full overflow-hidden"
-                    style={{ background: 'rgba(255,255,255,0.06)' }}
-                  >
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${pct}%`,
-                        background: area.color,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* ── ADD MILESTONE MODAL ── */}
-      {showModal && (
-        <AddMilestoneModal
-          onClose={() => setShowModal(false)}
-          onSubmit={handleAddMilestone}
-          currentSeasonKey={user.currentSeason}
-          currentWeek={currentSeason.currentWeek}
-        />
       )}
     </div>
   )

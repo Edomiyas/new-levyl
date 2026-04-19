@@ -25,7 +25,7 @@ export function TopNav() {
           className="text-xl font-black tracking-tight mr-2"
           style={{ color: '#AADF4F' }}
         >
-          levyl
+          Levyl
         </span>
 
         {/* Nav links */}

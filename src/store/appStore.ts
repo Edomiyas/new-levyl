@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { User, Season, Badge, Milestone, WeeklyGoal } from '../types'
+import type { User, Season, Badge, Milestone, WeeklyGoal, Goal } from '../types'
 
 interface AppState {
   user: User
@@ -7,7 +7,13 @@ interface AppState {
   badges: Badge[]
   toggleGoalDone: (goalId: string) => void
   addMilestone: (milestone: Milestone) => void
+  addWeeklyGoal: (milestoneId: string, goal: WeeklyGoal) => void
   updateVision: (statement: string) => void
+  addGoal: (goal: Goal) => void
+  updateGoal: (goalId: string, updates: Partial<Goal>) => void
+  deleteGoal: (goalId: string) => void
+  addMilestoneToGoal: (goalId: string, milestone: Milestone) => void
+  deleteMilestoneFromGoal: (goalId: string, milestoneId: string) => void
 }
 
 const mockWeeklyGoals = (milestoneId: string): WeeklyGoal[] => [
@@ -150,12 +156,12 @@ const initialSeasons: Season[] = [
 ]
 
 const initialBadges: Badge[] = [
-  { id: 'b1', icon: '🔥', label: 'First Flame', earned: true },
-  { id: 'b2', icon: '🌱', label: 'Season Starter', earned: true },
-  { id: 'b3', icon: '💎', label: 'Diamond Focus', earned: true },
-  { id: 'b4', icon: '⚡', label: 'Week Warrior', earned: false },
-  { id: 'b5', icon: '🏆', label: 'Season Champion', earned: false },
-  { id: 'b6', icon: '🌟', label: 'All Areas Active', earned: false },
+  { id: 'b1', icon: '🏋️', label: 'First lift', earned: true },
+  { id: 'b2', icon: '🧠', label: 'Mind seed', earned: true },
+  { id: 'b3', icon: '💰', label: 'First invest', earned: true },
+  { id: 'b4', icon: '⭐', label: '10 wk streak', earned: false },
+  { id: 'b5', icon: '🌸', label: 'Full bloom', earned: false },
+  { id: 'b6', icon: '🏆', label: 'Season done', earned: false },
 ]
 
 export const useAppStore = create<AppState>((set) => ({
@@ -163,11 +169,12 @@ export const useAppStore = create<AppState>((set) => ({
     id: 'user-1',
     name: 'Arsenic',
     currentSeason: 'summer',
-    xp: 2450,
-    level: 12,
+    xp: 1240,
+    level: 4,
     streak: 12,
     visionStatement:
       'I am building a life of intentional growth — physically strong, mentally sharp, spiritually grounded, and financially free — while showing up fully for my family and community.',
+    goals: [],
   },
   seasons: initialSeasons,
   badges: initialBadges,
@@ -194,8 +201,67 @@ export const useAppStore = create<AppState>((set) => ({
       ),
     })),
 
+  addWeeklyGoal: (milestoneId, goal) =>
+    set((state) => ({
+      seasons: state.seasons.map((season) => ({
+        ...season,
+        milestones: season.milestones.map((ms) =>
+          ms.id === milestoneId
+            ? { ...ms, weeklyGoals: [...ms.weeklyGoals, goal] }
+            : ms
+        ),
+      })),
+    })),
+
   updateVision: (statement) =>
     set((state) => ({
       user: { ...state.user, visionStatement: statement },
+    })),
+
+  addGoal: (goal) =>
+    set((state) => ({
+      user: { ...state.user, goals: [...state.user.goals, goal] },
+    })),
+
+  updateGoal: (goalId, updates) =>
+    set((state) => ({
+      user: {
+        ...state.user,
+        goals: state.user.goals.map((g) =>
+          g.id === goalId ? { ...g, ...updates } : g
+        ),
+      },
+    })),
+
+  deleteGoal: (goalId) =>
+    set((state) => ({
+      user: {
+        ...state.user,
+        goals: state.user.goals.filter((g) => g.id !== goalId),
+      },
+    })),
+
+  addMilestoneToGoal: (goalId, milestone) =>
+    set((state) => ({
+      user: {
+        ...state.user,
+        goals: state.user.goals.map((g) =>
+          g.id === goalId
+            ? { ...g, milestones: [...g.milestones, milestone] }
+            : g
+        ),
+      },
+    })),
+
+  deleteMilestoneFromGoal: (goalId, milestoneId) =>
+    set((state) => ({
+      user: {
+        ...state.user,
+        goals: state.user.goals.map((g) =>
+          g.id === goalId
+            ? { ...g, milestones: g.milestones.filter((m) => m.id !== milestoneId) }
+            : g
+        ),
+      },
     })),
 }))

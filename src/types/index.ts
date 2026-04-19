@@ -6,6 +6,16 @@ export interface User {
   level: number
   streak: number
   visionStatement: string
+  goals: Goal[]
+}
+
+export interface Goal {
+  id: string
+  title: string
+  category: string        // free text, dynamic category
+  categoryColor: string   // auto-assigned hex
+  milestones: Milestone[]
+  createdFrom: 'ai' | 'manual'
 }
 
 export type LifeAreaKey = 'physical' | 'mind' | 'spiritual' | 'wealth' | 'community' | 'family'
