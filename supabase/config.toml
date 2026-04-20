@@ -1,0 +1,8 @@
+# Supabase Configuration
+# This file configures the local Supabase development environment
+
+[api]
+enabled = true
+
+[realtime]
+enabled = true

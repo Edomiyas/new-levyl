@@ -42,39 +42,26 @@ export function Vision() {
   const handleGenerateGoals = async () => {
     if (!yearDescription.trim()) return
 
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-
-    if (!apiKey) {
-      setGenerationError('API key not configured. Please set VITE_ANTHROPIC_API_KEY environment variable.')
-      return
-    }
-
     setIsGenerating(true)
     setGenerationError('')
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      // Call local API proxy to generate goals
+      // This avoids CORS issues by proxying through a local backend server
+      const response = await fetch('http://localhost:3001/api/generate-goals', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey,
         },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: `You are a goal-setting assistant. The user will describe their ideal year. Extract specific, actionable goals from their description. Each goal must have a title and a category. Categories are dynamic — infer them from what the user wrote (e.g. 'Health & Fitness', 'Financial', 'Family', 'Career', 'Relationships', 'Learning', 'Spiritual', 'Creative', 'Travel', 'Community'). Do not use a fixed list — only use categories that genuinely appear in what the user wrote. Return ONLY valid JSON, no markdown, no explanation. Format: { "goals": [{ "title": string, "category": string, "rationale": string }] }`,
-          messages: [{ role: 'user', content: yearDescription }],
-        }),
+        body: JSON.stringify({ yearDescription }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`API error ${response.status}: ${errorData.error?.message || response.statusText}`)
+        const error = await response.json()
+        throw new Error(error.error || `API error ${response.status}`)
       }
 
-      const data = await response.json()
-      const content = data.content[0].text
-      const parsed: ParsedGoalsResponse = JSON.parse(content)
+      const parsed: ParsedGoalsResponse = await response.json()
 
       // Add each generated goal
       parsed.goals.forEach((g) => {
@@ -92,7 +79,26 @@ export function Vision() {
       setYearDescription('')
       setIsGenerating(false)
     } catch (err) {
-      setGenerationError(err instanceof Error ? err.message : 'Failed to generate goals')
+      const errorMsg = err instanceof Error ? err.message : 'Failed to generate goals'
+
+      // Provide helpful setup instructions if the API proxy isn't running
+      const helpMessage = `
+${errorMsg}
+
+To enable AI-powered goal generation:
+
+1. In a new terminal, run the API proxy server:
+   node api-proxy.js
+
+2. Make sure ANTHROPIC_API_KEY environment variable is set:
+   export ANTHROPIC_API_KEY="your-key-here"
+
+3. Then try clicking "Generate my goals from this →" again
+
+For now, use "Add a goal manually" to create goals without AI.
+      `.trim()
+
+      setGenerationError(helpMessage)
       setIsGenerating(false)
     }
   }
