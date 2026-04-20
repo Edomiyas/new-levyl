@@ -89,6 +89,17 @@ Seasons:
 - Inline add milestone form at bottom of expanded goal
 - Milestones assigned to Seasons in the Seasons page later
 
+### Setup for AI Goal Generation
+
+To enable the "Generate my goals from this →" feature:
+
+1. Get an Anthropic API key from https://console.anthropic.com/account/keys
+2. Create a `.env.local` file in the project root (if it doesn't exist)
+3. Add: `VITE_ANTHROPIC_API_KEY=your_api_key_here`
+4. Restart the dev server for changes to take effect
+
+Without the API key set, clicking "Generate" will show an error message. Manual goal creation via "Add a goal manually" works without an API key.
+
 ## Coding Conventions
 - All styling via inline styles + Tailwind utility classes (dark-first, no light mode)
 - Colors from constants.ts, not hardcoded in components (except TopNav which is stable)
