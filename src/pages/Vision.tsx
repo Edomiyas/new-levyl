@@ -42,6 +42,13 @@ export function Vision() {
   const handleGenerateGoals = async () => {
     if (!yearDescription.trim()) return
 
+    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+
+    if (!apiKey) {
+      setGenerationError('API key not configured. Please set VITE_ANTHROPIC_API_KEY environment variable.')
+      return
+    }
+
     setIsGenerating(true)
     setGenerationError('')
 
@@ -50,7 +57,7 @@ export function Vision() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY || '',
+          'x-api-key': apiKey,
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
@@ -61,7 +68,8 @@ export function Vision() {
       })
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`API error ${response.status}: ${errorData.error?.message || response.statusText}`)
       }
 
       const data = await response.json()
@@ -81,6 +89,7 @@ export function Vision() {
         addGoal(goal)
       })
 
+      setYearDescription('')
       setIsGenerating(false)
     } catch (err) {
       setGenerationError(err instanceof Error ? err.message : 'Failed to generate goals')
