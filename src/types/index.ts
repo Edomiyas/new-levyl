@@ -14,8 +14,16 @@ export interface Goal {
   title: string
   category: string        // free text, dynamic category
   categoryColor: string   // auto-assigned hex
-  milestones: Milestone[]
+  milestones: GoalMilestone[]
   createdFrom: 'ai' | 'manual'
+  expanded: boolean
+}
+
+export interface GoalMilestone {
+  id: string
+  goalId: string
+  title: string
+  status: 'not_started' | 'active' | 'done'
 }
 
 export type LifeAreaKey = 'physical' | 'mind' | 'spiritual' | 'wealth' | 'community' | 'family'

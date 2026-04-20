@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { User, Season, Badge, Milestone, WeeklyGoal, Goal } from '../types'
+import type { User, Season, Badge, Milestone, WeeklyGoal, Goal, GoalMilestone } from '../types'
 
 interface AppState {
   user: User
@@ -12,6 +12,10 @@ interface AppState {
   addGoal: (goal: Goal) => void
   updateGoal: (goalId: string, updates: Partial<Goal>) => void
   deleteGoal: (goalId: string) => void
+  toggleGoalExpanded: (goalId: string) => void
+  addGoalMilestone: (goalId: string, milestone: GoalMilestone) => void
+  removeGoalMilestone: (goalId: string, milestoneId: string) => void
+  updateGoalMilestone: (goalId: string, milestoneId: string, title: string) => void
   addMilestoneToGoal: (goalId: string, milestone: Milestone) => void
   deleteMilestoneFromGoal: (goalId: string, milestoneId: string) => void
 }
@@ -260,6 +264,57 @@ export const useAppStore = create<AppState>((set) => ({
         goals: state.user.goals.map((g) =>
           g.id === goalId
             ? { ...g, milestones: g.milestones.filter((m) => m.id !== milestoneId) }
+            : g
+        ),
+      },
+    })),
+
+  toggleGoalExpanded: (goalId) =>
+    set((state) => ({
+      user: {
+        ...state.user,
+        goals: state.user.goals.map((g) =>
+          g.id === goalId ? { ...g, expanded: !g.expanded } : g
+        ),
+      },
+    })),
+
+  addGoalMilestone: (goalId, milestone) =>
+    set((state) => ({
+      user: {
+        ...state.user,
+        goals: state.user.goals.map((g) =>
+          g.id === goalId
+            ? { ...g, milestones: [...g.milestones, milestone] }
+            : g
+        ),
+      },
+    })),
+
+  removeGoalMilestone: (goalId, milestoneId) =>
+    set((state) => ({
+      user: {
+        ...state.user,
+        goals: state.user.goals.map((g) =>
+          g.id === goalId
+            ? { ...g, milestones: g.milestones.filter((m) => m.id !== milestoneId) }
+            : g
+        ),
+      },
+    })),
+
+  updateGoalMilestone: (goalId, milestoneId, title) =>
+    set((state) => ({
+      user: {
+        ...state.user,
+        goals: state.user.goals.map((g) =>
+          g.id === goalId
+            ? {
+                ...g,
+                milestones: g.milestones.map((m) =>
+                  m.id === milestoneId ? { ...m, title } : m
+                ),
+              }
             : g
         ),
       },
