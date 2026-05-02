@@ -1,5 +1,16 @@
 import type { LifeAreaKey, SeasonKey } from '../types'
 
+export const CATEGORY_PALETTE = [
+  '#5DCAA5',
+  '#A89EF5',
+  '#F5C542',
+  '#AADF4F',
+  '#5BA8F5',
+  '#F0739A',
+  '#FF8C42',
+  '#64C8E8',
+]
+
 export const LIFE_AREAS: Record<
   LifeAreaKey,
   { label: string; color: string; bg: string; emoji: string }
@@ -53,3 +64,13 @@ export const SEASONS: Record<
 }
 
 export const SEASON_ORDER: SeasonKey[] = ['spring', 'summer', 'fall', 'winter']
+
+export function getCategoryColor(category: string): string {
+  let hash = 0
+
+  for (let i = 0; i < category.length; i++) {
+    hash = category.charCodeAt(i) + ((hash << 5) - hash)
+  }
+
+  return CATEGORY_PALETTE[Math.abs(hash) % CATEGORY_PALETTE.length]
+}

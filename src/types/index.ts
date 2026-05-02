@@ -5,15 +5,16 @@ export interface User {
   xp: number
   level: number
   streak: number
-  visionStatement: string
+  yearDescription: string
   goals: Goal[]
 }
 
 export interface Goal {
   id: string
   title: string
-  category: string        // free text, dynamic category
-  categoryColor: string   // auto-assigned hex
+  category: string
+  categoryColor: string
+  seasonKey: SeasonKey | null
   milestones: GoalMilestone[]
   createdFrom: 'ai' | 'manual'
   expanded: boolean
@@ -24,6 +25,18 @@ export interface GoalMilestone {
   goalId: string
   title: string
   status: 'not_started' | 'active' | 'done'
+  seasonKey: SeasonKey | null
+}
+
+export interface AISuggestionPanel {
+  goalId: string
+  suggestions: {
+    id: string
+    title: string
+    selected: boolean
+    editing: boolean
+  }[]
+  visible: boolean
 }
 
 export type LifeAreaKey = 'physical' | 'mind' | 'spiritual' | 'wealth' | 'community' | 'family'

@@ -1,23 +1,38 @@
 import { create } from 'zustand'
-import type { User, Season, Badge, Milestone, WeeklyGoal, Goal, GoalMilestone } from '../types'
+import { getCategoryColor } from '../lib/constants'
+import type {
+  Badge,
+  Goal,
+  GoalMilestone,
+  Milestone,
+  Season,
+  SeasonKey,
+  User,
+  WeeklyGoal,
+} from '../types'
 
 interface AppState {
   user: User
+  yearDescription: string
+  goals: Goal[]
   seasons: Season[]
   badges: Badge[]
   toggleGoalDone: (goalId: string) => void
   addMilestone: (milestone: Milestone) => void
   addWeeklyGoal: (milestoneId: string, goal: WeeklyGoal) => void
-  updateVision: (statement: string) => void
+  setYearDescription: (text: string) => void
   addGoal: (goal: Goal) => void
-  updateGoal: (goalId: string, updates: Partial<Goal>) => void
-  deleteGoal: (goalId: string) => void
-  toggleGoalExpanded: (goalId: string) => void
+  removeGoal: (id: string) => void
+  updateGoal: (id: string, updates: Partial<Goal>) => void
+  toggleGoalExpanded: (id: string) => void
   addGoalMilestone: (goalId: string, milestone: GoalMilestone) => void
   removeGoalMilestone: (goalId: string, milestoneId: string) => void
   updateGoalMilestone: (goalId: string, milestoneId: string, title: string) => void
-  addMilestoneToGoal: (goalId: string, milestone: Milestone) => void
-  deleteMilestoneFromGoal: (goalId: string, milestoneId: string) => void
+  assignMilestoneToSeason: (
+    goalId: string,
+    milestoneId: string,
+    seasonKey: SeasonKey
+  ) => void
 }
 
 const mockWeeklyGoals = (milestoneId: string): WeeklyGoal[] => [
@@ -47,6 +62,79 @@ const mockWeeklyGoals = (milestoneId: string): WeeklyGoal[] => [
   },
 ]
 
+const initialYearDescription =
+  "It’s December 31st, and I’m proud of how grounded this year felt. I rebuilt my strength and finally made the gym a steady part of life. I shipped the first real version of Levyl, got it into people’s hands, and learned from honest feedback instead of hiding in planning mode. I built healthier money habits, protected time for my family, and followed through on the trip we kept putting off. More than anything, I became someone who finished what mattered."
+
+const initialGoals: Goal[] = [
+  {
+    id: 'goal-health',
+    title: 'Rebuilt my strength and consistency in the gym',
+    category: 'Health',
+    categoryColor: getCategoryColor('Health'),
+    seasonKey: 'spring',
+    milestones: [
+      {
+        id: 'goal-health-ms-1',
+        goalId: 'goal-health',
+        title: 'Complete a full 12-week strength block',
+        status: 'done',
+        seasonKey: 'spring',
+      },
+      {
+        id: 'goal-health-ms-2',
+        goalId: 'goal-health',
+        title: 'Train at least 4 times per week for 8 straight weeks',
+        status: 'active',
+        seasonKey: 'spring',
+      },
+      {
+        id: 'goal-health-ms-3',
+        goalId: 'goal-health',
+        title: 'Hit a 225 lb squat for a confident single',
+        status: 'not_started',
+        seasonKey: 'spring',
+      },
+    ],
+    createdFrom: 'ai',
+    expanded: true,
+  },
+  {
+    id: 'goal-product',
+    title: 'Launched Levyl beta with real users',
+    category: 'Product',
+    categoryColor: getCategoryColor('Product'),
+    seasonKey: 'summer',
+    milestones: [
+      {
+        id: 'goal-product-ms-1',
+        goalId: 'goal-product',
+        title: 'Ship the core Vision, Seasons, and Today flows',
+        status: 'active',
+        seasonKey: 'summer',
+      },
+      {
+        id: 'goal-product-ms-2',
+        goalId: 'goal-product',
+        title: 'Invite 10 beta users and collect structured feedback',
+        status: 'not_started',
+        seasonKey: 'summer',
+      },
+    ],
+    createdFrom: 'manual',
+    expanded: false,
+  },
+  {
+    id: 'goal-family',
+    title: 'Took the family trip we kept postponing',
+    category: 'Family',
+    categoryColor: getCategoryColor('Family'),
+    seasonKey: null,
+    milestones: [],
+    createdFrom: 'ai',
+    expanded: false,
+  },
+]
+
 const initialSeasons: Season[] = [
   {
     key: 'spring',
@@ -55,20 +143,20 @@ const initialSeasons: Season[] = [
     currentWeek: null,
     milestones: [
       {
-        id: 'ms-1',
+        id: 'season-ms-1',
         seasonKey: 'spring',
         lifeAreaKey: 'physical',
         title: 'Run a 5K under 30 minutes',
         status: 'done',
-        weeklyGoals: mockWeeklyGoals('ms-1'),
+        weeklyGoals: mockWeeklyGoals('season-ms-1'),
       },
       {
-        id: 'ms-2',
+        id: 'season-ms-2',
         seasonKey: 'spring',
         lifeAreaKey: 'wealth',
         title: 'Build 3-month emergency fund',
         status: 'done',
-        weeklyGoals: mockWeeklyGoals('ms-2'),
+        weeklyGoals: mockWeeklyGoals('season-ms-2'),
       },
     ],
   },
@@ -79,25 +167,25 @@ const initialSeasons: Season[] = [
     currentWeek: 4,
     milestones: [
       {
-        id: 'ms-3',
+        id: 'season-ms-3',
         seasonKey: 'summer',
         lifeAreaKey: 'physical',
         title: 'Hit 3x gym per week',
         status: 'done',
         statusNote: 'Completed week 2',
-        weeklyGoals: mockWeeklyGoals('ms-3'),
+        weeklyGoals: mockWeeklyGoals('season-ms-3'),
       },
       {
-        id: 'ms-4',
+        id: 'season-ms-4',
         seasonKey: 'summer',
         lifeAreaKey: 'wealth',
         title: 'Invest $500 into index fund monthly',
         status: 'active',
         statusNote: 'In progress – 2 months left',
-        weeklyGoals: mockWeeklyGoals('ms-4'),
+        weeklyGoals: mockWeeklyGoals('season-ms-4'),
       },
       {
-        id: 'ms-5',
+        id: 'season-ms-5',
         seasonKey: 'summer',
         lifeAreaKey: 'mind',
         title: 'Read 2 books on mental models',
@@ -106,23 +194,23 @@ const initialSeasons: Season[] = [
         weeklyGoals: [],
       },
       {
-        id: 'ms-6',
+        id: 'season-ms-6',
         seasonKey: 'summer',
         lifeAreaKey: 'community',
         title: 'Attend 2 community events',
         status: 'active',
         statusNote: 'Flagged at risk',
         atRisk: true,
-        weeklyGoals: mockWeeklyGoals('ms-6'),
+        weeklyGoals: mockWeeklyGoals('season-ms-6'),
       },
       {
-        id: 'ms-7',
+        id: 'season-ms-7',
         seasonKey: 'summer',
         lifeAreaKey: 'spiritual',
         title: 'Daily 10-min morning practice',
         status: 'active',
         statusNote: '40% consistency so far',
-        weeklyGoals: mockWeeklyGoals('ms-7'),
+        weeklyGoals: mockWeeklyGoals('season-ms-7'),
       },
     ],
   },
@@ -133,7 +221,7 @@ const initialSeasons: Season[] = [
     currentWeek: null,
     milestones: [
       {
-        id: 'ms-7',
+        id: 'season-ms-8',
         seasonKey: 'fall',
         lifeAreaKey: 'family',
         title: 'Plan and take family trip',
@@ -141,7 +229,7 @@ const initialSeasons: Season[] = [
         weeklyGoals: [],
       },
       {
-        id: 'ms-8',
+        id: 'season-ms-9',
         seasonKey: 'fall',
         lifeAreaKey: 'spiritual',
         title: 'Develop consistent prayer practice',
@@ -168,6 +256,39 @@ const initialBadges: Badge[] = [
   { id: 'b6', icon: '🏆', label: 'Season done', earned: false },
 ]
 
+const syncGoals = (state: AppState, goals: Goal[]) => ({
+  goals,
+  user: { ...state.user, goals },
+})
+
+const syncYearDescription = (state: AppState, yearDescription: string) => ({
+  yearDescription,
+  user: { ...state.user, yearDescription },
+})
+
+const deriveGoalSeasonKey = (milestones: GoalMilestone[]): SeasonKey | null => {
+  if (milestones.length === 0) {
+    return null
+  }
+
+  const assignedSeasonKeys = milestones.filter(
+    (milestone): milestone is GoalMilestone & { seasonKey: SeasonKey } =>
+      milestone.seasonKey !== null
+  )
+
+  if (assignedSeasonKeys.length !== milestones.length) {
+    return null
+  }
+
+  const [firstSeason] = assignedSeasonKeys
+
+  return assignedSeasonKeys.every(
+    (milestone) => milestone.seasonKey === firstSeason.seasonKey
+  )
+    ? firstSeason.seasonKey
+    : null
+}
+
 export const useAppStore = create<AppState>((set) => ({
   user: {
     id: 'user-1',
@@ -176,10 +297,11 @@ export const useAppStore = create<AppState>((set) => ({
     xp: 1240,
     level: 4,
     streak: 12,
-    visionStatement:
-      'I am building a life of intentional growth — physically strong, mentally sharp, spiritually grounded, and financially free — while showing up fully for my family and community.',
-    goals: [],
+    yearDescription: initialYearDescription,
+    goals: initialGoals,
   },
+  yearDescription: initialYearDescription,
+  goals: initialGoals,
   seasons: initialSeasons,
   badges: initialBadges,
 
@@ -187,10 +309,10 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({
       seasons: state.seasons.map((season) => ({
         ...season,
-        milestones: season.milestones.map((ms) => ({
-          ...ms,
-          weeklyGoals: ms.weeklyGoals.map((g) =>
-            g.id === goalId ? { ...g, done: !g.done } : g
+        milestones: season.milestones.map((milestone) => ({
+          ...milestone,
+          weeklyGoals: milestone.weeklyGoals.map((goal) =>
+            goal.id === goalId ? { ...goal, done: !goal.done } : goal
           ),
         })),
       })),
@@ -209,114 +331,135 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({
       seasons: state.seasons.map((season) => ({
         ...season,
-        milestones: season.milestones.map((ms) =>
-          ms.id === milestoneId
-            ? { ...ms, weeklyGoals: [...ms.weeklyGoals, goal] }
-            : ms
+        milestones: season.milestones.map((milestone) =>
+          milestone.id === milestoneId
+            ? {
+                ...milestone,
+                weeklyGoals: [
+                  ...milestone.weeklyGoals,
+                  { ...goal, id: crypto.randomUUID(), milestoneId },
+                ],
+              }
+            : milestone
         ),
       })),
     })),
 
-  updateVision: (statement) =>
-    set((state) => ({
-      user: { ...state.user, visionStatement: statement },
-    })),
+  setYearDescription: (text) =>
+    set((state) => syncYearDescription(state, text)),
 
   addGoal: (goal) =>
-    set((state) => ({
-      user: { ...state.user, goals: [...state.user.goals, goal] },
-    })),
+    set((state) => syncGoals(state, [...state.goals, goal])),
 
-  updateGoal: (goalId, updates) =>
-    set((state) => ({
-      user: {
-        ...state.user,
-        goals: state.user.goals.map((g) =>
-          g.id === goalId ? { ...g, ...updates } : g
-        ),
-      },
-    })),
+  removeGoal: (id) =>
+    set((state) => syncGoals(state, state.goals.filter((goal) => goal.id !== id))),
 
-  deleteGoal: (goalId) =>
-    set((state) => ({
-      user: {
-        ...state.user,
-        goals: state.user.goals.filter((g) => g.id !== goalId),
-      },
-    })),
+  updateGoal: (id, updates) =>
+    set((state) =>
+      syncGoals(
+        state,
+        state.goals.map((goal) =>
+          goal.id === id ? { ...goal, ...updates } : goal
+        )
+      )
+    ),
 
-  addMilestoneToGoal: (goalId, milestone) =>
-    set((state) => ({
-      user: {
-        ...state.user,
-        goals: state.user.goals.map((g) =>
-          g.id === goalId
-            ? { ...g, milestones: [...g.milestones, milestone] }
-            : g
-        ),
-      },
-    })),
-
-  deleteMilestoneFromGoal: (goalId, milestoneId) =>
-    set((state) => ({
-      user: {
-        ...state.user,
-        goals: state.user.goals.map((g) =>
-          g.id === goalId
-            ? { ...g, milestones: g.milestones.filter((m) => m.id !== milestoneId) }
-            : g
-        ),
-      },
-    })),
-
-  toggleGoalExpanded: (goalId) =>
-    set((state) => ({
-      user: {
-        ...state.user,
-        goals: state.user.goals.map((g) =>
-          g.id === goalId ? { ...g, expanded: !g.expanded } : g
-        ),
-      },
-    })),
+  toggleGoalExpanded: (id) =>
+    set((state) =>
+      syncGoals(
+        state,
+        state.goals.map((goal) =>
+          goal.id === id ? { ...goal, expanded: !goal.expanded } : goal
+        )
+      )
+    ),
 
   addGoalMilestone: (goalId, milestone) =>
-    set((state) => ({
-      user: {
-        ...state.user,
-        goals: state.user.goals.map((g) =>
-          g.id === goalId
-            ? { ...g, milestones: [...g.milestones, milestone] }
-            : g
-        ),
-      },
-    })),
+    set((state) =>
+      syncGoals(
+        state,
+        state.goals.map((goal) => {
+          if (goal.id !== goalId) {
+            return goal
+          }
+
+          const nextMilestone: GoalMilestone = {
+            ...milestone,
+            seasonKey: milestone.seasonKey ?? goal.seasonKey,
+          }
+          const milestones = [...goal.milestones, nextMilestone]
+
+          return {
+            ...goal,
+            milestones,
+            seasonKey: deriveGoalSeasonKey(milestones),
+          }
+        })
+      )
+    ),
 
   removeGoalMilestone: (goalId, milestoneId) =>
-    set((state) => ({
-      user: {
-        ...state.user,
-        goals: state.user.goals.map((g) =>
-          g.id === goalId
-            ? { ...g, milestones: g.milestones.filter((m) => m.id !== milestoneId) }
-            : g
-        ),
-      },
-    })),
+    set((state) =>
+      syncGoals(
+        state,
+        state.goals.map((goal) => {
+          if (goal.id !== goalId) {
+            return goal
+          }
+
+          const milestones = goal.milestones.filter(
+            (milestone) => milestone.id !== milestoneId
+          )
+
+          return {
+            ...goal,
+            milestones,
+            seasonKey: deriveGoalSeasonKey(milestones),
+          }
+        })
+      )
+    ),
 
   updateGoalMilestone: (goalId, milestoneId, title) =>
-    set((state) => ({
-      user: {
-        ...state.user,
-        goals: state.user.goals.map((g) =>
-          g.id === goalId
+    set((state) =>
+      syncGoals(
+        state,
+        state.goals.map((goal) =>
+          goal.id === goalId
             ? {
-                ...g,
-                milestones: g.milestones.map((m) =>
-                  m.id === milestoneId ? { ...m, title } : m
+                ...goal,
+                milestones: goal.milestones.map((milestone) =>
+                  milestone.id === milestoneId
+                    ? { ...milestone, title }
+                    : milestone
                 ),
               }
-            : g
-        ),
-      },
-    })),
+            : goal
+        )
+      )
+    ),
+
+  assignMilestoneToSeason: (goalId, milestoneId, seasonKey) =>
+    set((state) =>
+      syncGoals(
+        state,
+        state.goals.map((goal) => {
+          if (goal.id !== goalId) {
+            return goal
+          }
+
+          const milestones = goal.milestones.map((milestone) =>
+            milestone.id === milestoneId
+              ? { ...milestone, seasonKey }
+              : milestone
+          )
+
+          return {
+            ...goal,
+            milestones,
+            seasonKey: deriveGoalSeasonKey(milestones),
+          }
+        })
+      )
+    ),
 }))
