@@ -7,12 +7,10 @@ import {
   Loader2,
   Plus,
   Trash2,
-  X,
-  Zap,
 } from 'lucide-react'
 import { getCategoryColor, SEASONS, SEASON_ORDER } from '../lib/constants'
 import { useAppStore } from '../store/appStore'
-import type { AISuggestionPanel, Goal, GoalMilestone, SeasonKey } from '../types'
+import type { Goal, GoalMilestone, SeasonKey } from '../types'
 
 interface AnthropicResponse {
   content?: Array<
@@ -30,12 +28,16 @@ interface GenerateGoalsResponse {
   goals: Array<{ title: string; category: string }>
 }
 
-interface SuggestMilestonesResponse {
-  milestones: Array<{ title: string }>
-}
-
 interface InferCategoryResponse {
   category: string
+}
+
+interface CoachingQuestionsResponse {
+  questions: string[]
+}
+
+interface PersonalizedMilestonesResponse {
+  milestones: Array<{ title: string; description: string }>
 }
 
 interface SeasonPlanItem {
@@ -46,6 +48,30 @@ interface SeasonPlanItem {
 
 interface SeasonPlanResponse {
   plan: SeasonPlanItem[]
+}
+
+type CoachingPhase =
+  | 'idle'
+  | 'questionsLoading'
+  | 'questionsReady'
+  | 'answering'
+  | 'milestonesLoading'
+  | 'reviewing'
+  | 'saved'
+
+interface DraftMilestone {
+  id: string
+  title: string
+  description: string
+}
+
+interface GoalCoachingState {
+  phase: CoachingPhase
+  questions: string[]
+  answers: string[]
+  draftMilestones: DraftMilestone[]
+  skippedQuestions: boolean
+  error: string
 }
 
 const ERROR_BANNER_STYLES = {
@@ -70,13 +96,26 @@ function createId(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`
 }
 
+function createEmptyCoachingState(): GoalCoachingState {
+  return {
+    phase: 'idle',
+    questions: [],
+    answers: ['', '', ''],
+    draftMilestones: [],
+    skippedQuestions: false,
+    error: '',
+  }
+}
+
 function getAnthropicApiKey() {
   return import.meta.env.VITE_ANTHROPIC_API_KEY?.trim()
 }
 
 function extractAnthropicText(response: AnthropicResponse) {
   const text = response.content
-    ?.filter((block): block is { type: 'text'; text: string } => block.type === 'text')
+    ?.filter(
+      (block): block is { type: 'text'; text: string } => block.type === 'text'
+    )
     .map((block) => block.text)
     .join('\n')
     .trim()
@@ -113,6 +152,7 @@ async function fetchAnthropicJson<T>({
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
@@ -123,7 +163,26 @@ async function fetchAnthropicJson<T>({
   })
 
   if (!response.ok) {
-    throw new Error(await response.text())
+    const errorText = await response.text()
+    let parsedMessage = ''
+
+    try {
+      const parsed = JSON.parse(errorText) as {
+        error?: { message?: string }
+      }
+
+      parsedMessage = parsed.error?.message?.trim() || ''
+    } catch {
+      parsedMessage = ''
+    }
+
+    if (parsedMessage === 'invalid x-api-key') {
+      throw new Error(
+        'Invalid Anthropic API key. Update VITE_ANTHROPIC_API_KEY in .env.local and restart the dev server.'
+      )
+    }
+
+    throw new Error(parsedMessage || errorText)
   }
 
   const data = (await response.json()) as AnthropicResponse
@@ -131,12 +190,9 @@ async function fetchAnthropicJson<T>({
   return JSON.parse(extractAnthropicText(data)) as T
 }
 
-function getSeasonBadge(seasonKey: SeasonKey | null) {
-  if (!seasonKey) {
-    return null
-  }
-
-  return SEASONS[seasonKey]
+function autoResizeTextarea(element: HTMLTextAreaElement) {
+  element.style.height = '0px'
+  element.style.height = `${element.scrollHeight}px`
 }
 
 function getMilestoneStatusColor(status: GoalMilestone['status']) {
@@ -178,6 +234,10 @@ export function Vision() {
   )
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
   const [editingGoalTitle, setEditingGoalTitle] = useState('')
+  const [editingCategoryGoalId, setEditingCategoryGoalId] = useState<string | null>(
+    null
+  )
+  const [editingCategoryText, setEditingCategoryText] = useState('')
   const [confirmingDeleteGoalId, setConfirmingDeleteGoalId] = useState<string | null>(
     null
   )
@@ -185,12 +245,11 @@ export function Vision() {
     goalId: string
     milestoneId: string
     title: string
+    description: string
   } | null>(null)
-  const [suggestionPanels, setSuggestionPanels] = useState<
-    Record<string, AISuggestionPanel>
+  const [coachingStates, setCoachingStates] = useState<
+    Record<string, GoalCoachingState>
   >({})
-  const [suggestingGoalId, setSuggestingGoalId] = useState<string | null>(null)
-  const [suggestionErrors, setSuggestionErrors] = useState<Record<string, string>>({})
   const [seasonPlan, setSeasonPlan] = useState<SeasonPlanItem[] | null>(null)
   const [approvedPlanGoals, setApprovedPlanGoals] = useState<Record<string, boolean>>(
     {}
@@ -199,17 +258,61 @@ export function Vision() {
   const [planError, setPlanError] = useState('')
 
   const visiblePlan =
-    seasonPlan?.filter((item) => goals.some((goal) => goal.id === item.goalId)) ?? []
+    seasonPlan?.filter((item) => goals.some((goal) => goal.id === item.goalId)) ??
+    []
 
   const approvedPlanCount = visiblePlan.filter(
     (item) => approvedPlanGoals[item.goalId]
   ).length
+
+  const setCoachingState = (
+    goalId: string,
+    updater: (state: GoalCoachingState) => GoalCoachingState
+  ) => {
+    setCoachingStates((current) => ({
+      ...current,
+      [goalId]: updater(current[goalId] ?? createEmptyCoachingState()),
+    }))
+  }
 
   const resetManualForm = () => {
     setManualTitle('')
     setManualCategory('')
     setManualError('')
     setShowManualForm(false)
+  }
+
+  const saveGoalTitle = () => {
+    if (!editingGoalId) {
+      return
+    }
+
+    const nextTitle = editingGoalTitle.trim()
+
+    if (nextTitle) {
+      updateGoal(editingGoalId, { title: nextTitle })
+    }
+
+    setEditingGoalId(null)
+    setEditingGoalTitle('')
+  }
+
+  const saveGoalCategory = () => {
+    if (!editingCategoryGoalId) {
+      return
+    }
+
+    const nextCategory = editingCategoryText.trim()
+
+    if (nextCategory) {
+      updateGoal(editingCategoryGoalId, {
+        category: nextCategory,
+        categoryColor: getCategoryColor(nextCategory),
+      })
+    }
+
+    setEditingCategoryGoalId(null)
+    setEditingCategoryText('')
   }
 
   const handleGenerateGoals = async () => {
@@ -223,14 +326,15 @@ export function Vision() {
     try {
       const data = await fetchAnthropicJson<GenerateGoalsResponse>({
         system:
-          'You are a goal extraction assistant. The user wrote their ideal year in past tense. Extract 4-7 specific meaningful goals. Categories must be inferred from what they actually wrote — do not use a fixed list. Only include categories genuinely present in the text. Return ONLY valid JSON with no markdown or explanation: { "goals": [{ "title": string, "category": string }] }',
+          'You are a goal extraction assistant. The user wrote their ideal year in past tense. Extract 4-7 specific meaningful goals. For each goal infer a category from the domain it belongs to — Health & Fitness, Financial, Family, Career, Relationships, Learning, Spiritual, Creative, Travel, or Community. Only use categories genuinely present in the text. Return ONLY valid JSON, no markdown: { "goals": [{ "title": string, "category": string }] }',
         maxTokens: 1000,
         message: yearDescription,
       })
 
       const seen = new Set(
         goals.map(
-          (goal) => `${goal.title.toLowerCase().trim()}::${goal.category.toLowerCase().trim()}`
+          (goal) =>
+            `${goal.title.toLowerCase().trim()}::${goal.category.toLowerCase().trim()}`
         )
       )
 
@@ -261,122 +365,15 @@ export function Vision() {
           expanded: true,
         })
       })
-    } catch {
-      setGenerationError('Could not generate goals — try again or add manually')
+    } catch (error) {
+      setGenerationError(
+        error instanceof Error
+          ? error.message
+          : 'Could not generate goals — try again or add manually'
+      )
     } finally {
       setIsGeneratingGoals(false)
     }
-  }
-
-  const handleStartGoalEdit = (goal: Goal) => {
-    setEditingGoalId(goal.id)
-    setEditingGoalTitle(goal.title)
-    setConfirmingDeleteGoalId(null)
-  }
-
-  const handleSaveGoalTitle = () => {
-    if (!editingGoalId) {
-      return
-    }
-
-    const nextTitle = editingGoalTitle.trim()
-
-    if (nextTitle) {
-      updateGoal(editingGoalId, { title: nextTitle })
-    }
-
-    setEditingGoalId(null)
-    setEditingGoalTitle('')
-  }
-
-  const handleAddMilestone = (goal: Goal) => {
-    const title = newMilestoneTitles[goal.id]?.trim()
-
-    if (!title) {
-      return
-    }
-
-    addGoalMilestone(goal.id, {
-      id: createId('goal-milestone'),
-      goalId: goal.id,
-      title,
-      status: 'not_started',
-      seasonKey: goal.seasonKey,
-    })
-
-    setNewMilestoneTitles((current) => ({ ...current, [goal.id]: '' }))
-  }
-
-  const handleSuggestMilestones = async (goal: Goal) => {
-    setSuggestingGoalId(goal.id)
-    setSuggestionErrors((current) => ({ ...current, [goal.id]: '' }))
-    setSuggestionPanels((current) => ({
-      ...current,
-      [goal.id]: {
-        goalId: goal.id,
-        suggestions: current[goal.id]?.suggestions ?? [],
-        visible: true,
-      },
-    }))
-
-    try {
-      const data = await fetchAnthropicJson<SuggestMilestonesResponse>({
-        system:
-          'You are a milestone planning assistant. Given a goal and the user\'s broader year vision, suggest 3-5 concrete milestones. Each milestone should be a specific, measurable outcome — not a task or habit. Return ONLY valid JSON: { "milestones": [{ "title": string }] }',
-        maxTokens: 800,
-        message: `Goal: ${goal.title}\nCategory: ${goal.category}\nYear vision: ${yearDescription}`,
-      })
-
-      setSuggestionPanels((current) => ({
-        ...current,
-        [goal.id]: {
-          goalId: goal.id,
-          visible: true,
-          suggestions: data.milestones
-            .map((milestone) => milestone.title.trim())
-            .filter(Boolean)
-            .map((title) => ({
-              id: createId('ai-suggestion'),
-              title,
-              selected: true,
-              editing: false,
-            })),
-        },
-      }))
-    } catch {
-      setSuggestionErrors((current) => ({
-        ...current,
-        [goal.id]: 'Could not suggest milestones right now',
-      }))
-    } finally {
-      setSuggestingGoalId(null)
-    }
-  }
-
-  const handleApplySuggestions = (goal: Goal) => {
-    const panel = suggestionPanels[goal.id]
-
-    if (!panel) {
-      return
-    }
-
-    panel.suggestions
-      .filter((suggestion) => suggestion.selected && suggestion.title.trim())
-      .forEach((suggestion) => {
-        addGoalMilestone(goal.id, {
-          id: createId('goal-milestone'),
-          goalId: goal.id,
-          title: suggestion.title.trim(),
-          status: 'not_started',
-          seasonKey: goal.seasonKey,
-        })
-      })
-
-    setSuggestionPanels((current) => {
-      const nextPanels = { ...current }
-      delete nextPanels[goal.id]
-      return nextPanels
-    })
   }
 
   const handleSaveManualGoal = async () => {
@@ -395,7 +392,7 @@ export function Vision() {
       if (!category) {
         const data = await fetchAnthropicJson<InferCategoryResponse>({
           system:
-            'Given a goal title, return a single category label. Return ONLY valid JSON: { "category": string }',
+            'Given a goal title, choose the single best category from Health & Fitness, Financial, Family, Career, Relationships, Learning, Spiritual, Creative, Travel, or Community. Return ONLY valid JSON: { "category": string }',
           maxTokens: 150,
           message: title,
         })
@@ -419,13 +416,236 @@ export function Vision() {
       })
 
       resetManualForm()
-    } catch {
+    } catch (error) {
       setManualError(
-        'Could not save this goal right now — add a category or try again'
+        error instanceof Error
+          ? error.message
+          : 'Could not save this goal right now — add a category or try again'
       )
     } finally {
       setIsSavingManualGoal(false)
     }
+  }
+
+  const handleAddMilestone = (goalId: string) => {
+    const title = newMilestoneTitles[goalId]?.trim()
+
+    if (!title) {
+      return
+    }
+
+    addGoalMilestone(goalId, {
+      id: createId('goal-milestone'),
+      goalId,
+      title,
+      description: '',
+      status: 'not_started',
+      seasonKey: null,
+    })
+
+    setNewMilestoneTitles((current) => ({ ...current, [goalId]: '' }))
+  }
+
+  const handleGetCoachingQuestions = async (goal: Goal) => {
+    if (!goal.expanded) {
+      toggleGoalExpanded(goal.id)
+    }
+
+    setCoachingState(goal.id, () => ({
+      phase: 'questionsLoading',
+      questions: [],
+      answers: ['', '', ''],
+      draftMilestones: [],
+      skippedQuestions: false,
+      error: '',
+    }))
+
+    try {
+      const data = await fetchAnthropicJson<CoachingQuestionsResponse>({
+        system:
+          "You are a professional coach and expert in the domain of the goal. Generate exactly 3 short, specific diagnostic questions to understand:\n1. The user's current situation or starting point\n2. What success specifically looks like for them\n3. Any constraints (time, money, health, resources, experience level)\n\nThe questions must be specific to the goal category and feel like they come from a real professional in that field — not generic. A fitness coach asks differently than a financial advisor. Keep each question under 15 words. Return ONLY valid JSON: { \"questions\": [string, string, string] }",
+        maxTokens: 600,
+        message: `Goal: ${goal.title}\nCategory: ${goal.category}\nUser's vision: ${yearDescription}`,
+      })
+
+      const questions = data.questions.map((question) => question.trim()).filter(Boolean)
+
+      if (questions.length !== 3) {
+        throw new Error('Could not prepare your coaching questions right now')
+      }
+
+      setCoachingState(goal.id, () => ({
+        phase: 'questionsReady',
+        questions,
+        answers: ['', '', ''],
+        draftMilestones: [],
+        skippedQuestions: false,
+        error: '',
+      }))
+    } catch (error) {
+      setCoachingState(goal.id, () => ({
+        phase: 'idle',
+        questions: [],
+        answers: ['', '', ''],
+        draftMilestones: [],
+        skippedQuestions: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Could not prepare your coaching questions right now',
+      }))
+    }
+  }
+
+  const handleCoachingAnswerChange = (
+    goalId: string,
+    index: number,
+    value: string,
+    element: HTMLTextAreaElement
+  ) => {
+    autoResizeTextarea(element)
+
+    setCoachingState(goalId, (current) => {
+      const nextAnswers = current.answers.map((answer, answerIndex) =>
+        answerIndex === index ? value : answer
+      )
+      const phase = nextAnswers.some((answer) => answer.trim())
+        ? 'answering'
+        : 'questionsReady'
+
+      return {
+        ...current,
+        answers: nextAnswers,
+        phase,
+        error: '',
+      }
+    })
+  }
+
+  const handleGeneratePersonalizedMilestones = async (
+    goal: Goal,
+    skippedQuestions: boolean
+  ) => {
+    const coachingState = coachingStates[goal.id] ?? createEmptyCoachingState()
+    const allAnswered = coachingState.answers.every((answer) => answer.trim())
+
+    if (!skippedQuestions && !allAnswered) {
+      return
+    }
+
+    setCoachingState(goal.id, (current) => ({
+      ...current,
+      phase: 'milestonesLoading',
+      skippedQuestions,
+      error: '',
+    }))
+
+    const message = skippedQuestions
+      ? `Goal: ${goal.title}
+Category: ${goal.category}
+Their vision: ${yearDescription}
+
+The user skipped the diagnostic questions. Create a thoughtful first pass that stays generic but useful.
+
+Question 1: ${coachingState.questions[0] ?? 'Current situation'}
+Answer: Skipped by user
+
+Question 2: ${coachingState.questions[1] ?? 'Definition of success'}
+Answer: Skipped by user
+
+Question 3: ${coachingState.questions[2] ?? 'Constraints'}
+Answer: Skipped by user`
+      : `Goal: ${goal.title}
+Category: ${goal.category}
+Their vision: ${yearDescription}
+
+Question 1: ${coachingState.questions[0]}
+Answer: ${coachingState.answers[0]}
+
+Question 2: ${coachingState.questions[1]}
+Answer: ${coachingState.answers[1]}
+
+Question 3: ${coachingState.questions[2]}
+Answer: ${coachingState.answers[2]}`
+
+    try {
+      const data = await fetchAnthropicJson<PersonalizedMilestonesResponse>({
+        system: `You are a professional coach and domain expert in ${goal.category}. 
+
+Based on the user's goal, their current situation, what success looks like to them, and their constraints — generate 3-5 highly personalized milestones.
+
+Rules for milestones:
+- Each milestone is a specific, concrete achievement — not a habit or task
+- They must reflect the user's actual starting point (not generic)
+- They must match the user's definition of success (not yours)
+- They must be realistic given the constraints mentioned
+- Use the language and framing of a real professional in this field
+- Order them from foundational to advanced — each builds on the last
+- Each milestone should have a short title (under 8 words) and a one-sentence description of what it means specifically for this user
+
+Return ONLY valid JSON: { "milestones": [{ "title": string, "description": string }] }`,
+        maxTokens: 1000,
+        message,
+      })
+
+      const draftMilestones = data.milestones
+        .map((milestone) => ({
+          id: createId('draft-milestone'),
+          title: milestone.title.trim(),
+          description: milestone.description.trim(),
+        }))
+        .filter((milestone) => milestone.title && milestone.description)
+
+      if (draftMilestones.length === 0) {
+        throw new Error('Could not create milestones from that response')
+      }
+
+      setCoachingState(goal.id, (current) => ({
+        ...current,
+        phase: 'reviewing',
+        draftMilestones,
+        skippedQuestions,
+        error: '',
+      }))
+    } catch (error) {
+      setCoachingState(goal.id, (current) => ({
+        ...current,
+        phase: current.answers.some((answer) => answer.trim())
+          ? 'answering'
+          : 'questionsReady',
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Could not create milestones right now',
+      }))
+    }
+  }
+
+  const handleSaveGeneratedMilestones = (goalId: string) => {
+    const coachingState = coachingStates[goalId]
+
+    if (!coachingState || coachingState.draftMilestones.length === 0) {
+      return
+    }
+
+    coachingState.draftMilestones.forEach((milestone) => {
+      addGoalMilestone(goalId, {
+        id: createId('goal-milestone'),
+        goalId,
+        title: milestone.title.trim(),
+        description: milestone.description.trim(),
+        status: 'not_started',
+        seasonKey: null,
+      })
+    })
+
+    setCoachingState(goalId, (current) => ({
+      ...current,
+      phase: 'saved',
+      draftMilestones: [],
+      skippedQuestions: false,
+      error: '',
+    }))
   }
 
   const handlePlanYear = async () => {
@@ -458,8 +678,12 @@ export function Vision() {
       setApprovedPlanGoals(
         Object.fromEntries(nextPlan.map((item) => [item.goalId, true]))
       )
-    } catch {
-      setPlanError('Could not plan your year right now — try again')
+    } catch (error) {
+      setPlanError(
+        error instanceof Error
+          ? error.message
+          : 'Could not plan your year right now — try again'
+      )
     } finally {
       setIsPlanningYear(false)
     }
@@ -492,10 +716,16 @@ export function Vision() {
         style={CARD_STYLES}
       >
         <div className="flex flex-col gap-2">
-          <h1 className="text-[1.85rem] font-black leading-tight" style={{ color: '#F0EFEB' }}>
+          <h1
+            className="text-[1.85rem] font-black leading-tight"
+            style={{ color: '#F0EFEB' }}
+          >
             Describe your year as if it&apos;s already happened
           </h1>
-          <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.36)' }}>
+          <p
+            className="text-sm leading-relaxed"
+            style={{ color: 'rgba(255,255,255,0.36)' }}
+          >
             Write in past tense. Be specific — what did you do, feel, build,
             experience?
           </p>
@@ -550,7 +780,10 @@ export function Vision() {
         </div>
 
         {generationError && (
-          <div className="mt-4 rounded-[16px] px-4 py-3 text-sm" style={ERROR_BANNER_STYLES}>
+          <div
+            className="mt-4 rounded-[16px] px-4 py-3 text-sm"
+            style={ERROR_BANNER_STYLES}
+          >
             {generationError}
           </div>
         )}
@@ -573,7 +806,10 @@ export function Vision() {
             </button>
 
             {planError && (
-              <div className="mt-3 rounded-[16px] px-4 py-3 text-sm" style={ERROR_BANNER_STYLES}>
+              <div
+                className="mt-3 rounded-[16px] px-4 py-3 text-sm"
+                style={ERROR_BANNER_STYLES}
+              >
                 {planError}
               </div>
             )}
@@ -600,10 +836,13 @@ export function Vision() {
           </div>
 
           {goals.map((goal) => {
-            const suggestionPanel = suggestionPanels[goal.id]
-            const selectedSuggestionCount =
-              suggestionPanel?.suggestions.filter((suggestion) => suggestion.selected).length ?? 0
-            const seasonBadge = getSeasonBadge(goal.seasonKey)
+            const coachingState = coachingStates[goal.id] ?? createEmptyCoachingState()
+            const hasCoachingPanel =
+              goal.expanded &&
+              !['idle', 'saved'].includes(coachingState.phase)
+            const canCreateMilestones = coachingState.answers.every((answer) =>
+              answer.trim()
+            )
 
             return (
               <article
@@ -618,24 +857,55 @@ export function Vision() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
-                    <span
-                      className="inline-flex rounded-full px-3 py-1 text-xs font-extrabold"
-                      style={{
-                        background: `${goal.categoryColor}1F`,
-                        color: goal.categoryColor,
-                      }}
-                    >
-                      {goal.category}
-                    </span>
+                    {editingCategoryGoalId === goal.id ? (
+                      <input
+                        value={editingCategoryText}
+                        onChange={(event) => setEditingCategoryText(event.target.value)}
+                        onBlur={saveGoalCategory}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            saveGoalCategory()
+                          }
+
+                          if (event.key === 'Escape') {
+                            setEditingCategoryGoalId(null)
+                            setEditingCategoryText('')
+                          }
+                        }}
+                        autoFocus
+                        className="inline-flex rounded-full px-3 py-1 text-xs font-extrabold outline-none transition-all duration-200 focus:border-white/20"
+                        style={{
+                          ...INPUT_STYLES,
+                          width: 170,
+                          color: goal.categoryColor,
+                          background: `${goal.categoryColor}14`,
+                          border: `1px solid ${goal.categoryColor}45`,
+                        }}
+                      />
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setEditingCategoryGoalId(goal.id)
+                          setEditingCategoryText(goal.category)
+                        }}
+                        className="inline-flex rounded-full px-3 py-1 text-xs font-extrabold transition-all duration-200"
+                        style={{
+                          background: `${goal.categoryColor}1F`,
+                          color: goal.categoryColor,
+                        }}
+                      >
+                        {goal.category}
+                      </button>
+                    )}
 
                     {editingGoalId === goal.id ? (
                       <input
                         value={editingGoalTitle}
                         onChange={(event) => setEditingGoalTitle(event.target.value)}
-                        onBlur={handleSaveGoalTitle}
+                        onBlur={saveGoalTitle}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
-                            handleSaveGoalTitle()
+                            saveGoalTitle()
                           }
 
                           if (event.key === 'Escape') {
@@ -655,20 +925,12 @@ export function Vision() {
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    {seasonBadge && (
-                      <span
-                        className="rounded-full px-2.5 py-1 text-[11px] font-black"
-                        style={{
-                          background: `${seasonBadge.color}1A`,
-                          color: seasonBadge.color,
-                        }}
-                      >
-                        {seasonBadge.label}
-                      </span>
-                    )}
-
                     <button
-                      onClick={() => handleStartGoalEdit(goal)}
+                      onClick={() => {
+                        setEditingGoalId(goal.id)
+                        setEditingGoalTitle(goal.title)
+                        setConfirmingDeleteGoalId(null)
+                      }}
                       className="rounded-full p-2 transition-all duration-200 hover:bg-[#202020]"
                       style={{ color: 'rgba(255,255,255,0.45)' }}
                       aria-label={`Edit ${goal.title}`}
@@ -705,7 +967,11 @@ export function Vision() {
                     <button
                       onClick={() => toggleGoalExpanded(goal.id)}
                       className="rounded-full p-2 transition-all duration-200 hover:bg-[#202020]"
-                      style={{ color: goal.expanded ? goal.categoryColor : 'rgba(255,255,255,0.45)' }}
+                      style={{
+                        color: goal.expanded
+                          ? goal.categoryColor
+                          : 'rgba(255,255,255,0.45)',
+                      }}
                       aria-label={goal.expanded ? 'Collapse goal' : 'Expand goal'}
                     >
                       {goal.expanded ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
@@ -716,181 +982,321 @@ export function Vision() {
                 {goal.expanded && (
                   <div className="mt-4 flex flex-col gap-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                      <span
+                        className="text-sm font-bold"
+                        style={{ color: 'rgba(255,255,255,0.45)' }}
+                      >
                         {goal.milestones.length}{' '}
                         {goal.milestones.length === 1 ? 'milestone' : 'milestones'}
                       </span>
 
                       <button
-                        onClick={() => handleSuggestMilestones(goal)}
-                        disabled={suggestingGoalId === goal.id}
+                        onClick={() => handleGetCoachingQuestions(goal)}
+                        disabled={coachingState.phase === 'questionsLoading'}
                         className="inline-flex items-center gap-2 self-start rounded-full px-3 py-2 text-xs font-black transition-all duration-200 disabled:cursor-not-allowed"
                         style={{
                           background: 'rgba(168,158,245,0.12)',
                           color: '#A89EF5',
-                          opacity: suggestingGoalId === goal.id ? 0.75 : 1,
+                          opacity: coachingState.phase === 'questionsLoading' ? 0.75 : 1,
                         }}
                       >
-                        {suggestingGoalId === goal.id ? (
+                        {coachingState.phase === 'questionsLoading' && (
                           <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <Zap size={14} />
                         )}
-                        Suggest with AI
+                        Get milestones
                       </button>
                     </div>
 
-                    {suggestionErrors[goal.id] && (
-                      <div className="rounded-[16px] px-4 py-3 text-sm" style={ERROR_BANNER_STYLES}>
-                        {suggestionErrors[goal.id]}
+                    {coachingState.error && !hasCoachingPanel && (
+                      <div
+                        className="rounded-[16px] px-4 py-3 text-sm"
+                        style={ERROR_BANNER_STYLES}
+                      >
+                        {coachingState.error}
                       </div>
                     )}
 
-                    {(suggestingGoalId === goal.id || suggestionPanel?.visible) && (
+                    {hasCoachingPanel && (
                       <div
-                        className="rounded-[20px] p-4"
+                        className="rounded-[16px] p-5"
                         style={{
                           background: '#202020',
-                          border: '1px solid rgba(168,158,245,0.2)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          marginTop: 12,
                         }}
                       >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                            AI suggested these milestones
-                          </p>
-
-                          <button
-                            onClick={() =>
-                              setSuggestionPanels((current) => {
-                                const nextPanels = { ...current }
-                                delete nextPanels[goal.id]
-                                return nextPanels
-                              })
-                            }
-                            className="rounded-full p-1 transition-all duration-200 hover:bg-[#181818]"
-                            style={{ color: 'rgba(255,255,255,0.45)' }}
-                            aria-label="Dismiss suggestions"
+                        {coachingState.phase === 'questionsLoading' && (
+                          <div
+                            className="flex items-center gap-2 text-sm"
+                            style={{ color: 'rgba(255,255,255,0.5)' }}
                           >
-                            <X size={14} />
-                          </button>
-                        </div>
-
-                        {suggestingGoalId === goal.id && (!suggestionPanel || suggestionPanel.suggestions.length === 0) ? (
-                          <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: '#A89EF5' }}>
-                            <Loader2 size={15} className="animate-spin" />
-                            Thinking through the right milestones...
+                            <Loader2 size={16} className="animate-spin" />
+                            Preparing your questions...
                           </div>
-                        ) : (
-                          <>
-                            <div className="mt-4 flex flex-col gap-2.5">
-                              {suggestionPanel?.suggestions.map((suggestion) => (
-                                <div key={suggestion.id} className="flex items-center gap-3">
-                                  <input
-                                    type="checkbox"
-                                    checked={suggestion.selected}
-                                    onChange={(event) =>
-                                      setSuggestionPanels((current) => ({
-                                        ...current,
-                                        [goal.id]: {
-                                          ...current[goal.id],
-                                          suggestions: current[goal.id].suggestions.map((entry) =>
-                                            entry.id === suggestion.id
-                                              ? {
-                                                  ...entry,
-                                                  selected: event.target.checked,
-                                                }
-                                              : entry
-                                          ),
-                                        },
-                                      }))
-                                    }
-                                    className="h-4 w-4 cursor-pointer rounded"
-                                    style={{ accentColor: '#AADF4F' }}
-                                  />
+                        )}
 
-                                  <input
-                                    value={suggestion.title}
-                                    onChange={(event) =>
-                                      setSuggestionPanels((current) => ({
-                                        ...current,
-                                        [goal.id]: {
-                                          ...current[goal.id],
-                                          suggestions: current[goal.id].suggestions.map((entry) =>
-                                            entry.id === suggestion.id
-                                              ? {
-                                                  ...entry,
-                                                  title: event.target.value,
-                                                }
-                                              : entry
+                        {(coachingState.phase === 'questionsReady' ||
+                          coachingState.phase === 'answering' ||
+                          coachingState.phase === 'milestonesLoading') && (
+                          <div className="flex flex-col gap-4">
+                            <p
+                              className="text-sm"
+                              style={{ color: 'rgba(255,255,255,0.5)' }}
+                            >
+                              To create milestones that actually fit your life, I
+                              have a few questions.
+                            </p>
+
+                            {coachingState.error && (
+                              <div
+                                className="rounded-[14px] px-4 py-3 text-sm"
+                                style={ERROR_BANNER_STYLES}
+                              >
+                                {coachingState.error}
+                              </div>
+                            )}
+
+                            {coachingState.questions.map((question, index) => (
+                              <div key={`${goal.id}-question-${index}`}>
+                                <label
+                                  className="mb-1.5 block text-[13px] font-extrabold"
+                                  style={{ color: 'rgba(255,255,255,0.5)' }}
+                                >
+                                  {question}
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={coachingState.answers[index] ?? ''}
+                                  onChange={(event) =>
+                                    handleCoachingAnswerChange(
+                                      goal.id,
+                                      index,
+                                      event.target.value,
+                                      event.currentTarget
+                                    )
+                                  }
+                                  onInput={(event) =>
+                                    autoResizeTextarea(event.currentTarget)
+                                  }
+                                  className="w-full resize-none overflow-hidden rounded-[10px] px-3 py-3 text-[14px] outline-none transition-all duration-200 focus:border-white/20"
+                                  style={{
+                                    background: '#181818',
+                                    border: '1px solid rgba(255,255,255,0.07)',
+                                    color: '#F0EFEB',
+                                    fontFamily: 'Nunito, sans-serif',
+                                  }}
+                                />
+                              </div>
+                            ))}
+
+                            <button
+                              onClick={() =>
+                                handleGeneratePersonalizedMilestones(goal, false)
+                              }
+                              disabled={
+                                !canCreateMilestones ||
+                                coachingState.phase === 'milestonesLoading'
+                              }
+                              className="rounded-[14px] px-4 py-3 text-sm font-black transition-all duration-200 disabled:cursor-not-allowed"
+                              style={{
+                                background:
+                                  !canCreateMilestones ||
+                                  coachingState.phase === 'milestonesLoading'
+                                    ? 'rgba(170,223,79,0.18)'
+                                    : '#AADF4F',
+                                color:
+                                  !canCreateMilestones ||
+                                  coachingState.phase === 'milestonesLoading'
+                                    ? 'rgba(15,15,15,0.55)'
+                                    : '#0F0F0F',
+                                opacity: !canCreateMilestones ? 0.7 : 1,
+                              }}
+                            >
+                              <span className="inline-flex items-center gap-2">
+                                {coachingState.phase === 'milestonesLoading' && (
+                                  <Loader2 size={16} className="animate-spin" />
+                                )}
+                                Create my milestones →
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={() =>
+                                handleGeneratePersonalizedMilestones(goal, true)
+                              }
+                              disabled={coachingState.phase === 'milestonesLoading'}
+                              className="self-start text-xs font-bold transition-all duration-200 disabled:cursor-not-allowed"
+                              style={{ color: 'rgba(255,255,255,0.4)' }}
+                            >
+                              Skip questions — generate anyway
+                            </button>
+                          </div>
+                        )}
+
+                        {coachingState.phase === 'reviewing' && (
+                          <div className="flex flex-col gap-4">
+                            {coachingState.skippedQuestions && (
+                              <div
+                                className="rounded-[14px] px-4 py-3 text-sm"
+                                style={{
+                                  background: 'rgba(245,197,66,0.1)',
+                                  border: '1px solid rgba(245,197,66,0.25)',
+                                  color: '#F5C542',
+                                }}
+                              >
+                                <span>
+                                  These are generic — answer the questions for
+                                  milestones tailored to you
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    setCoachingState(goal.id, (current) => ({
+                                      ...current,
+                                      phase: current.answers.some((answer) =>
+                                        answer.trim()
+                                      )
+                                        ? 'answering'
+                                        : 'questionsReady',
+                                      skippedQuestions: false,
+                                      error: '',
+                                    }))
+                                  }
+                                  className="ml-2 font-black underline"
+                                  style={{ color: '#F5C542' }}
+                                >
+                                  Answer questions
+                                </button>
+                              </div>
+                            )}
+
+                            <div>
+                              <p
+                                className="text-sm"
+                                style={{ color: 'rgba(255,255,255,0.5)' }}
+                              >
+                                Here are your personalized milestones
+                              </p>
+                              <p
+                                className="mt-1 text-xs"
+                                style={{ color: 'rgba(255,255,255,0.36)' }}
+                              >
+                                Edit any of these before saving
+                              </p>
+                            </div>
+
+                            <div className="flex flex-col gap-2.5">
+                              {coachingState.draftMilestones.map((milestone, index) => (
+                                <div
+                                  key={milestone.id}
+                                  className="rounded-[10px] p-[14px]"
+                                  style={{
+                                    background: '#181818',
+                                    border:
+                                      index > 0
+                                        ? '1px solid rgba(255,255,255,0.05)'
+                                        : '1px solid rgba(255,255,255,0.05)',
+                                  }}
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className="min-w-0 flex-1">
+                                      <input
+                                        value={milestone.title}
+                                        onChange={(event) =>
+                                          setCoachingState(goal.id, (current) => ({
+                                            ...current,
+                                            draftMilestones: current.draftMilestones.map((entry) =>
+                                              entry.id === milestone.id
+                                                ? {
+                                                    ...entry,
+                                                    title: event.target.value,
+                                                  }
+                                                : entry
+                                            ),
+                                          }))
+                                        }
+                                        className="w-full border-b border-white/7 bg-transparent pb-2 text-[15px] font-black outline-none"
+                                        style={{ color: '#F0EFEB' }}
+                                      />
+                                      <textarea
+                                        rows={2}
+                                        value={milestone.description}
+                                        onChange={(event) =>
+                                          setCoachingState(goal.id, (current) => ({
+                                            ...current,
+                                            draftMilestones: current.draftMilestones.map((entry) =>
+                                              entry.id === milestone.id
+                                                ? {
+                                                    ...entry,
+                                                    description: event.target.value,
+                                                  }
+                                                : entry
+                                            ),
+                                          }))
+                                        }
+                                        onInput={(event) =>
+                                          autoResizeTextarea(event.currentTarget)
+                                        }
+                                        className="mt-2 w-full resize-none overflow-hidden bg-transparent text-[13px] outline-none"
+                                        style={{
+                                          color: 'rgba(255,255,255,0.6)',
+                                          fontFamily: 'Nunito, sans-serif',
+                                        }}
+                                      />
+                                    </div>
+
+                                    <button
+                                      onClick={() =>
+                                        setCoachingState(goal.id, (current) => ({
+                                          ...current,
+                                          draftMilestones: current.draftMilestones.filter(
+                                            (entry) => entry.id !== milestone.id
                                           ),
-                                        },
-                                      }))
-                                    }
-                                    onFocus={() =>
-                                      setSuggestionPanels((current) => ({
-                                        ...current,
-                                        [goal.id]: {
-                                          ...current[goal.id],
-                                          suggestions: current[goal.id].suggestions.map((entry) =>
-                                            entry.id === suggestion.id
-                                              ? { ...entry, editing: true }
-                                              : entry
-                                          ),
-                                        },
-                                      }))
-                                    }
-                                    onBlur={() =>
-                                      setSuggestionPanels((current) => ({
-                                        ...current,
-                                        [goal.id]: {
-                                          ...current[goal.id],
-                                          suggestions: current[goal.id].suggestions.map((entry) =>
-                                            entry.id === suggestion.id
-                                              ? { ...entry, editing: false }
-                                              : entry
-                                          ),
-                                        },
-                                      }))
-                                    }
-                                    className="w-full rounded-[14px] px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-white/20"
-                                    style={{
-                                      ...INPUT_STYLES,
-                                      border: suggestion.editing
-                                        ? '1px solid rgba(255,255,255,0.2)'
-                                        : INPUT_STYLES.border,
-                                    }}
-                                  />
+                                        }))
+                                      }
+                                      className="rounded-full p-2 transition-all duration-200 hover:bg-[#202020]"
+                                      style={{ color: 'rgba(255,255,255,0.45)' }}
+                                      aria-label={`Delete ${milestone.title}`}
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
 
-                            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                            <div className="flex flex-col gap-2 sm:flex-row">
                               <button
-                                onClick={() => handleApplySuggestions(goal)}
-                                disabled={selectedSuggestionCount === 0}
+                                onClick={() => handleSaveGeneratedMilestones(goal.id)}
+                                disabled={coachingState.draftMilestones.length === 0}
                                 className="flex-1 rounded-[14px] px-4 py-3 text-sm font-black transition-all duration-200 disabled:cursor-not-allowed"
                                 style={{
                                   background:
-                                    selectedSuggestionCount === 0
+                                    coachingState.draftMilestones.length === 0
                                       ? 'rgba(170,223,79,0.18)'
                                       : '#AADF4F',
                                   color:
-                                    selectedSuggestionCount === 0
+                                    coachingState.draftMilestones.length === 0
                                       ? 'rgba(15,15,15,0.55)'
                                       : '#0F0F0F',
-                                  opacity: selectedSuggestionCount === 0 ? 0.7 : 1,
+                                  opacity:
+                                    coachingState.draftMilestones.length === 0
+                                      ? 0.7
+                                      : 1,
                                 }}
                               >
-                                Apply selected
+                                Save these milestones
                               </button>
 
                               <button
                                 onClick={() =>
-                                  setSuggestionPanels((current) => {
-                                    const nextPanels = { ...current }
-                                    delete nextPanels[goal.id]
-                                    return nextPanels
-                                  })
+                                  setCoachingState(goal.id, (current) => ({
+                                    ...current,
+                                    phase: 'questionsReady',
+                                    answers: ['', '', ''],
+                                    draftMilestones: [],
+                                    skippedQuestions: false,
+                                    error: '',
+                                  }))
                                 }
                                 className="rounded-[14px] px-4 py-3 text-sm font-black transition-all duration-200"
                                 style={{
@@ -899,10 +1305,10 @@ export function Vision() {
                                   color: 'rgba(255,255,255,0.5)',
                                 }}
                               >
-                                Discard all
+                                Start over
                               </button>
                             </div>
-                          </>
+                          </div>
                         )}
                       </div>
                     )}
@@ -915,7 +1321,7 @@ export function Vision() {
                         {goal.milestones.map((milestone, index) => (
                           <div
                             key={milestone.id}
-                            className="flex flex-col gap-3 px-4 py-3 md:flex-row md:items-center"
+                            className="flex flex-col gap-3 px-4 py-3 md:flex-row md:items-start"
                             style={{
                               background: '#181818',
                               borderTop:
@@ -924,64 +1330,91 @@ export function Vision() {
                                   : '1px solid rgba(255,255,255,0.05)',
                             }}
                           >
-                            <div className="flex min-w-0 flex-1 items-center gap-3">
+                            <div className="flex min-w-0 flex-1 gap-3">
                               <span
-                                className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                                className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full"
                                 style={{
                                   background: getMilestoneStatusColor(milestone.status),
                                 }}
                               />
 
                               {editingMilestone?.milestoneId === milestone.id ? (
-                                <input
-                                  value={editingMilestone.title}
-                                  onChange={(event) =>
-                                    setEditingMilestone((current) =>
-                                      current
-                                        ? { ...current, title: event.target.value }
-                                        : current
-                                    )
-                                  }
-                                  onBlur={() => {
-                                    const nextTitle = editingMilestone.title.trim()
-
-                                    if (nextTitle) {
-                                      updateGoalMilestone(
-                                        editingMilestone.goalId,
-                                        editingMilestone.milestoneId,
-                                        nextTitle
+                                <div className="w-full">
+                                  <input
+                                    value={editingMilestone.title}
+                                    onChange={(event) =>
+                                      setEditingMilestone((current) =>
+                                        current
+                                          ? { ...current, title: event.target.value }
+                                          : current
                                       )
                                     }
-
-                                    setEditingMilestone(null)
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (event.key === 'Enter') {
-                                      const nextTitle = editingMilestone.title.trim()
-
-                                      if (nextTitle) {
-                                        updateGoalMilestone(
-                                          editingMilestone.goalId,
-                                          editingMilestone.milestoneId,
-                                          nextTitle
-                                        )
-                                      }
-
-                                      setEditingMilestone(null)
+                                    className="w-full rounded-[14px] px-3 py-2 text-sm font-black outline-none transition-all duration-200 focus:border-white/20"
+                                    style={INPUT_STYLES}
+                                  />
+                                  <textarea
+                                    rows={2}
+                                    value={editingMilestone.description}
+                                    onChange={(event) =>
+                                      setEditingMilestone((current) =>
+                                        current
+                                          ? {
+                                              ...current,
+                                              description: event.target.value,
+                                            }
+                                          : current
+                                      )
                                     }
-
-                                    if (event.key === 'Escape') {
-                                      setEditingMilestone(null)
+                                    onInput={(event) =>
+                                      autoResizeTextarea(event.currentTarget)
                                     }
-                                  }}
-                                  autoFocus
-                                  className="w-full rounded-[14px] px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-white/20"
-                                  style={INPUT_STYLES}
-                                />
+                                    className="mt-2 w-full resize-none overflow-hidden rounded-[14px] px-3 py-2 text-[13px] outline-none transition-all duration-200 focus:border-white/20"
+                                    style={INPUT_STYLES}
+                                  />
+                                  <div className="mt-2 flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        updateGoalMilestone(goal.id, milestone.id, {
+                                          title: editingMilestone.title.trim() || milestone.title,
+                                          description: editingMilestone.description.trim(),
+                                        })
+                                        setEditingMilestone(null)
+                                      }}
+                                      className="rounded-[12px] px-3 py-2 text-xs font-black"
+                                      style={{
+                                        background: '#AADF4F',
+                                        color: '#0F0F0F',
+                                      }}
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingMilestone(null)}
+                                      className="rounded-[12px] px-3 py-2 text-xs font-black"
+                                      style={{
+                                        background: 'transparent',
+                                        border: '1px solid rgba(255,255,255,0.12)',
+                                        color: 'rgba(255,255,255,0.5)',
+                                      }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
                               ) : (
-                                <p className="min-w-0 text-sm" style={{ color: '#F0EFEB' }}>
-                                  {milestone.title}
-                                </p>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-black" style={{ color: '#F0EFEB' }}>
+                                    {milestone.title}
+                                  </p>
+                                  {milestone.description && (
+                                    <p
+                                      className="mt-1 text-[13px] leading-relaxed"
+                                      style={{ color: 'rgba(255,255,255,0.6)' }}
+                                    >
+                                      {milestone.description}
+                                    </p>
+                                  )}
+                                </div>
                               )}
                             </div>
 
@@ -1014,6 +1447,7 @@ export function Vision() {
                                     goalId: goal.id,
                                     milestoneId: milestone.id,
                                     title: milestone.title,
+                                    description: milestone.description,
                                   })
                                 }
                                 className="rounded-full p-2 transition-all duration-200 hover:bg-[#202020]"
@@ -1040,7 +1474,7 @@ export function Vision() {
                         className="text-xs italic"
                         style={{ color: 'rgba(255,255,255,0.32)' }}
                       >
-                        No milestones yet — add one or let AI suggest some
+                        No milestones yet — add one or let coaching shape them
                       </p>
                     )}
 
@@ -1055,7 +1489,7 @@ export function Vision() {
                         }
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
-                            handleAddMilestone(goal)
+                            handleAddMilestone(goal.id)
                           }
                         }}
                         placeholder="Add a milestone..."
@@ -1064,7 +1498,7 @@ export function Vision() {
                       />
 
                       <button
-                        onClick={() => handleAddMilestone(goal)}
+                        onClick={() => handleAddMilestone(goal.id)}
                         className="flex h-[48px] w-[48px] items-center justify-center rounded-[16px] transition-all duration-200"
                         style={{
                           background: '#202020',
@@ -1101,7 +1535,9 @@ export function Vision() {
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
             {SEASON_ORDER.map((seasonKey) => {
               const season = SEASONS[seasonKey]
-              const seasonItems = visiblePlan.filter((item) => item.seasonKey === seasonKey)
+              const seasonItems = visiblePlan.filter(
+                (item) => item.seasonKey === seasonKey
+              )
 
               return (
                 <div
@@ -1118,7 +1554,10 @@ export function Vision() {
                       <p className="text-sm font-black" style={{ color: season.color }}>
                         {season.label}
                       </p>
-                      <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                      <p
+                        className="text-[11px]"
+                        style={{ color: 'rgba(255,255,255,0.28)' }}
+                      >
                         {season.dateRange}
                       </p>
                     </div>
@@ -1126,7 +1565,10 @@ export function Vision() {
 
                   <div className="mt-4 flex flex-col gap-2.5">
                     {seasonItems.length === 0 ? (
-                      <p className="text-xs italic" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                      <p
+                        className="text-xs italic"
+                        style={{ color: 'rgba(255,255,255,0.28)' }}
+                      >
                         No goals assigned here
                       </p>
                     ) : (
@@ -1172,7 +1614,10 @@ export function Vision() {
                                 <p className="text-sm font-black" style={{ color: '#F0EFEB' }}>
                                   {goal.title}
                                 </p>
-                                <p className="mt-1 text-[11px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.36)' }}>
+                                <p
+                                  className="mt-1 text-[11px] leading-relaxed"
+                                  style={{ color: 'rgba(255,255,255,0.36)' }}
+                                >
                                   {item.reason}
                                 </p>
                               </div>
@@ -1249,8 +1694,8 @@ export function Vision() {
                 Category
               </label>
               <p className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.36)' }}>
-                (e.g. Health, Career, Family — AI will suggest if you leave this
-                blank)
+                (e.g. Health &amp; Fitness, Career, Family — AI will suggest if you
+                leave this blank)
               </p>
               <input
                 value={manualCategory}
@@ -1265,7 +1710,10 @@ export function Vision() {
             </div>
 
             {manualError && (
-              <div className="rounded-[16px] px-4 py-3 text-sm" style={ERROR_BANNER_STYLES}>
+              <div
+                className="rounded-[16px] px-4 py-3 text-sm"
+                style={ERROR_BANNER_STYLES}
+              >
                 {manualError}
               </div>
             )}

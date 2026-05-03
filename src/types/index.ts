@@ -24,6 +24,7 @@ export interface GoalMilestone {
   id: string
   goalId: string
   title: string
+  description: string
   status: 'not_started' | 'active' | 'done'
   seasonKey: SeasonKey | null
 }

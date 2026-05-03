@@ -27,7 +27,11 @@ interface AppState {
   toggleGoalExpanded: (id: string) => void
   addGoalMilestone: (goalId: string, milestone: GoalMilestone) => void
   removeGoalMilestone: (goalId: string, milestoneId: string) => void
-  updateGoalMilestone: (goalId: string, milestoneId: string, title: string) => void
+  updateGoalMilestone: (
+    goalId: string,
+    milestoneId: string,
+    updates: Partial<GoalMilestone>
+  ) => void
   assignMilestoneToSeason: (
     goalId: string,
     milestoneId: string,
@@ -71,12 +75,13 @@ const initialGoals: Goal[] = [
     title: 'Rebuilt my strength and consistency in the gym',
     category: 'Health',
     categoryColor: getCategoryColor('Health'),
-    seasonKey: 'spring',
+    seasonKey: null,
     milestones: [
       {
         id: 'goal-health-ms-1',
         goalId: 'goal-health',
         title: 'Complete a full 12-week strength block',
+        description: 'Build a repeatable lifting rhythm and finish a full progression cycle.',
         status: 'done',
         seasonKey: 'spring',
       },
@@ -84,6 +89,7 @@ const initialGoals: Goal[] = [
         id: 'goal-health-ms-2',
         goalId: 'goal-health',
         title: 'Train at least 4 times per week for 8 straight weeks',
+        description: 'Show that consistency is stable enough to carry through a real training block.',
         status: 'active',
         seasonKey: 'spring',
       },
@@ -91,6 +97,7 @@ const initialGoals: Goal[] = [
         id: 'goal-health-ms-3',
         goalId: 'goal-health',
         title: 'Hit a 225 lb squat for a confident single',
+        description: 'Reach a concrete strength benchmark that reflects the year’s progress.',
         status: 'not_started',
         seasonKey: 'spring',
       },
@@ -103,12 +110,13 @@ const initialGoals: Goal[] = [
     title: 'Launched Levyl beta with real users',
     category: 'Product',
     categoryColor: getCategoryColor('Product'),
-    seasonKey: 'summer',
+    seasonKey: null,
     milestones: [
       {
         id: 'goal-product-ms-1',
         goalId: 'goal-product',
         title: 'Ship the core Vision, Seasons, and Today flows',
+        description: 'Get the foundational product loop working end to end for beta users.',
         status: 'active',
         seasonKey: 'summer',
       },
@@ -116,6 +124,7 @@ const initialGoals: Goal[] = [
         id: 'goal-product-ms-2',
         goalId: 'goal-product',
         title: 'Invite 10 beta users and collect structured feedback',
+        description: 'Put the product in real hands and learn where it breaks or resonates.',
         status: 'not_started',
         seasonKey: 'summer',
       },
@@ -266,29 +275,6 @@ const syncYearDescription = (state: AppState, yearDescription: string) => ({
   user: { ...state.user, yearDescription },
 })
 
-const deriveGoalSeasonKey = (milestones: GoalMilestone[]): SeasonKey | null => {
-  if (milestones.length === 0) {
-    return null
-  }
-
-  const assignedSeasonKeys = milestones.filter(
-    (milestone): milestone is GoalMilestone & { seasonKey: SeasonKey } =>
-      milestone.seasonKey !== null
-  )
-
-  if (assignedSeasonKeys.length !== milestones.length) {
-    return null
-  }
-
-  const [firstSeason] = assignedSeasonKeys
-
-  return assignedSeasonKeys.every(
-    (milestone) => milestone.seasonKey === firstSeason.seasonKey
-  )
-    ? firstSeason.seasonKey
-    : null
-}
-
 export const useAppStore = create<AppState>((set) => ({
   user: {
     id: 'user-1',
@@ -383,16 +369,9 @@ export const useAppStore = create<AppState>((set) => ({
             return goal
           }
 
-          const nextMilestone: GoalMilestone = {
-            ...milestone,
-            seasonKey: milestone.seasonKey ?? goal.seasonKey,
-          }
-          const milestones = [...goal.milestones, nextMilestone]
-
           return {
             ...goal,
-            milestones,
-            seasonKey: deriveGoalSeasonKey(milestones),
+            milestones: [...goal.milestones, milestone],
           }
         })
       )
@@ -407,20 +386,17 @@ export const useAppStore = create<AppState>((set) => ({
             return goal
           }
 
-          const milestones = goal.milestones.filter(
-            (milestone) => milestone.id !== milestoneId
-          )
-
           return {
             ...goal,
-            milestones,
-            seasonKey: deriveGoalSeasonKey(milestones),
+            milestones: goal.milestones.filter(
+              (milestone) => milestone.id !== milestoneId
+            ),
           }
         })
       )
     ),
 
-  updateGoalMilestone: (goalId, milestoneId, title) =>
+  updateGoalMilestone: (goalId, milestoneId, updates) =>
     set((state) =>
       syncGoals(
         state,
@@ -430,7 +406,7 @@ export const useAppStore = create<AppState>((set) => ({
                 ...goal,
                 milestones: goal.milestones.map((milestone) =>
                   milestone.id === milestoneId
-                    ? { ...milestone, title }
+                    ? { ...milestone, ...updates }
                     : milestone
                 ),
               }
@@ -448,16 +424,13 @@ export const useAppStore = create<AppState>((set) => ({
             return goal
           }
 
-          const milestones = goal.milestones.map((milestone) =>
-            milestone.id === milestoneId
-              ? { ...milestone, seasonKey }
-              : milestone
-          )
-
           return {
             ...goal,
-            milestones,
-            seasonKey: deriveGoalSeasonKey(milestones),
+            milestones: goal.milestones.map((milestone) =>
+              milestone.id === milestoneId
+                ? { ...milestone, seasonKey }
+                : milestone
+            ),
           }
         })
       )
