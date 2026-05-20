@@ -26,6 +26,7 @@ interface AppState {
   toggleGoalDone: (goalId: string) => void
   addWeeklyGoal: (milestoneId: string, goal: WeeklyGoal) => void
   logMood: (entry: MoodEntry) => void
+  awardXP: (amount: number, reason: string) => void
   setYearDescription: (text: string) => void
   replaceGoals: (goals: Goal[]) => void
   addGoal: (goal: Goal) => void
@@ -80,6 +81,14 @@ const initialBadges: Badge[] = [
 ]
 const initialMoodLog: MoodEntry[] = []
 
+function toIsoDate(date: Date) {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
 const syncGoals = (state: AppState, goals: Goal[]) => ({
   goals,
   user: { ...state.user, goals },
@@ -98,6 +107,7 @@ export const useAppStore = create<AppState>((set) => ({
     xp: 1240,
     level: 4,
     streak: 12,
+    lastActiveDate: '',
     yearDescription: initialYearDescription,
     goals: initialGoals,
   },
@@ -153,6 +163,39 @@ export const useAppStore = create<AppState>((set) => ({
         entry,
       ].sort((a, b) => a.date.localeCompare(b.date)),
     })),
+
+  awardXP: (amount, _reason) =>
+    set((state) => {
+      const today = new Date()
+      const todayKey = toIsoDate(today)
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yesterdayKey = toIsoDate(yesterday)
+      const nextXp = state.user.xp + amount
+      const previousThreshold = Math.floor(state.user.xp / 1000)
+      const nextThreshold = Math.floor(nextXp / 1000)
+      const levelIncrease = Math.max(nextThreshold - previousThreshold, 0)
+
+      let nextStreak = state.user.streak
+
+      if (state.user.lastActiveDate === todayKey) {
+        nextStreak = state.user.streak
+      } else if (state.user.lastActiveDate === yesterdayKey) {
+        nextStreak = state.user.streak + 1
+      } else {
+        nextStreak = 1
+      }
+
+      return {
+        user: {
+          ...state.user,
+          xp: nextXp,
+          level: state.user.level + levelIncrease,
+          streak: nextStreak,
+          lastActiveDate: todayKey,
+        },
+      }
+    }),
 
   setYearDescription: (text) =>
     set((state) => syncYearDescription(state, text)),

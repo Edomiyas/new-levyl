@@ -18,7 +18,7 @@ const MOODS = [
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
-const XP_PER_GOAL = 50
+const XP_PER_GOAL = 10
 
 function toIsoDate(date: Date) {
   const year = date.getFullYear()
@@ -284,7 +284,7 @@ function SundayReflection() {
 // ─── Today Page ──────────────────────────────────────────────────────────────
 
 export function Today() {
-  const { user, seasons, goals, moodLog, toggleGoalDone, logMood } = useAppStore()
+  const { user, seasons, goals, moodLog, toggleGoalDone, logMood, awardXP } = useAppStore()
 
   const currentSeason = seasons.find((s) => s.key === user.currentSeason)!
   const week = getCurrentWeekInSeason(user.currentSeason)
@@ -513,7 +513,13 @@ export function Today() {
                     {weekGoals.map((goal, idx) => (
                       <button
                         key={goal.id}
-                        onClick={() => toggleGoalDone(goal.id)}
+                        onClick={() => {
+                          toggleGoalDone(goal.id)
+
+                          if (!goal.done) {
+                            awardXP(10, 'Weekly task completed')
+                          }
+                        }}
                         className="w-full flex items-start gap-3 px-4 py-3 text-left transition-all"
                         style={{
                           borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none',

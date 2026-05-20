@@ -151,8 +151,9 @@ export function Dashboard() {
       .filter((category) => category.length > 0)
   ).size
 
-  const xpToNext = 2000
-  const xpPct = Math.min(100, Math.round((user.xp / xpToNext) * 100))
+  const xpIntoCurrentLevel = user.xp % 1000
+  const xpToNext = xpIntoCurrentLevel === 0 ? 1000 : 1000 - xpIntoCurrentLevel
+  const xpPct = Math.min(100, Math.round((xpIntoCurrentLevel / 1000) * 100))
 
   const lifeAreaProgress: Record<LifeAreaKey, number> = {
     physical: 74,

@@ -169,6 +169,7 @@ export function Vision() {
   const setYearDescription = useAppStore((state) => state.setYearDescription)
   const replaceGoals = useAppStore((state) => state.replaceGoals)
   const addGoal = useAppStore((state) => state.addGoal)
+  const awardXP = useAppStore((state) => state.awardXP)
   const removeGoal = useAppStore((state) => state.removeGoal)
   const updateGoal = useAppStore((state) => state.updateGoal)
   const toggleGoalExpanded = useAppStore((state) => state.toggleGoalExpanded)
@@ -264,6 +265,8 @@ export function Vision() {
       return
     }
 
+    const shouldAwardGoalGenerationXp = goals.length === 0
+
     setIsGeneratingGoals(true)
     setGenerationError('')
 
@@ -306,6 +309,11 @@ export function Vision() {
       })
 
       replaceGoals(nextGoals)
+
+      if (shouldAwardGoalGenerationXp && nextGoals.length > 0) {
+        awardXP(50, 'Goals generated from vision')
+      }
+
       setCoachingStates({})
       setConfirmingDeleteGoalId(null)
       setEditingGoalId(null)
@@ -587,6 +595,8 @@ Return ONLY valid JSON: { "milestones": [{ "title": string, "description": strin
         weeklyGoals: [],
       })
     })
+
+    awardXP(25, 'Milestones saved from coaching flow')
 
     setCoachingState(goalId, (current) => ({
       ...current,

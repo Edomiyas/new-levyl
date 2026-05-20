@@ -167,14 +167,21 @@ function MilestoneDetail({
   seasonColor,
   onBack,
   onAddGoal,
+  onStatusChange,
 }: {
   milestone: SeasonGoalMilestone
   currentWeek: number | null
   seasonColor: string
   onBack: () => void
   onAddGoal: (weekHint: number | null) => void
+  onStatusChange: (
+    goalId: string,
+    milestoneId: string,
+    currentStatus: SeasonGoalMilestone['status'],
+    nextStatus: SeasonGoalMilestone['status']
+  ) => void
 }) {
-  const { toggleGoalDone, updateMilestoneStatus } = useAppStore()
+  const { toggleGoalDone } = useAppStore()
 
   const doneCount = milestone.weeklyGoals.filter((g) => g.done).length
   const totalCount = milestone.weeklyGoals.length
@@ -291,7 +298,12 @@ function MilestoneDetail({
               <button
                 key={option.value}
                 onClick={() =>
-                  updateMilestoneStatus(milestone.goalId, milestone.id, option.value)
+                  onStatusChange(
+                    milestone.goalId,
+                    milestone.id,
+                    milestone.status,
+                    option.value
+                  )
                 }
                 className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black transition-all"
                 style={{
@@ -490,6 +502,7 @@ export function Seasons() {
     addWeeklyGoal,
     updateMilestoneStatus,
     assignMilestoneToSeason,
+    awardXP,
   } = useAppStore()
   const [activeTab, setActiveTab] = useState<SeasonKey>(user.currentSeason)
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null)
@@ -545,6 +558,19 @@ export function Seasons() {
     addWeeklyGoal(selectedMilestoneId, goal)
     setShowAddGoal(false)
     setPreselectedWeek(null)
+  }
+
+  const handleMilestoneStatusChange = (
+    goalId: string,
+    milestoneId: string,
+    currentStatus: SeasonGoalMilestone['status'],
+    nextStatus: SeasonGoalMilestone['status']
+  ) => {
+    updateMilestoneStatus(goalId, milestoneId, nextStatus)
+
+    if (nextStatus === 'done' && currentStatus !== 'done') {
+      awardXP(100, 'Milestone completed')
+    }
   }
 
   return (
@@ -800,7 +826,12 @@ export function Seasons() {
                             <div className="flex gap-2 mt-1.5 ml-11">
                               <button
                                 onClick={() =>
-                                  updateMilestoneStatus(group.goalId, ms.id, 'done')
+                                  handleMilestoneStatusChange(
+                                    group.goalId,
+                                    ms.id,
+                                    ms.status,
+                                    'done'
+                                  )
                                 }
                                 className="text-[11px] font-black px-3 py-1.5 rounded-lg transition-all"
                                 style={{ background: 'rgba(93,202,165,0.12)', color: '#5DCAA5' }}
@@ -841,6 +872,7 @@ export function Seasons() {
               seasonColor={cfg.color}
               onBack={() => setSelectedMilestoneId(null)}
               onAddGoal={handleAddGoal}
+              onStatusChange={handleMilestoneStatusChange}
             />
           ) : (
             <>

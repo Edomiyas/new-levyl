@@ -5,6 +5,7 @@ export interface User {
   xp: number
   level: number
   streak: number
+  lastActiveDate: string
   yearDescription: string
   goals: Goal[]
 }
