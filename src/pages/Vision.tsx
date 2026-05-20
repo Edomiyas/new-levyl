@@ -1,6 +1,6 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  Check,
   ChevronDown,
   ChevronUp,
   Edit2,
@@ -8,6 +8,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react'
+import { callAnthropic } from '../lib/anthropic'
 import { getCategoryColor, SEASONS, SEASON_ORDER } from '../lib/constants'
 import { useAppStore } from '../store/appStore'
 import type { Goal, GoalMilestone, SeasonKey } from '../types'
@@ -38,16 +39,6 @@ interface CoachingQuestionsResponse {
 
 interface PersonalizedMilestonesResponse {
   milestones: Array<{ title: string; description: string }>
-}
-
-interface SeasonPlanItem {
-  goalId: string
-  seasonKey: SeasonKey
-  reason: string
-}
-
-interface SeasonPlanResponse {
-  plan: SeasonPlanItem[]
 }
 
 type CoachingPhase =
@@ -107,10 +98,6 @@ function createEmptyCoachingState(): GoalCoachingState {
   }
 }
 
-function getAnthropicApiKey() {
-  return import.meta.env.VITE_ANTHROPIC_API_KEY?.trim()
-}
-
 function extractAnthropicText(response: AnthropicResponse) {
   const text = response.content
     ?.filter(
@@ -140,54 +127,22 @@ async function fetchAnthropicJson<T>({
   maxTokens: number
   message: string
 }) {
-  const apiKey = getAnthropicApiKey()
-
-  if (!apiKey) {
-    throw new Error('Missing Anthropic API key')
-  }
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
+  try {
+    const data = (await callAnthropic({
       model: 'claude-sonnet-4-20250514',
       max_tokens: maxTokens,
       system,
       messages: [{ role: 'user', content: message }],
-    }),
-  })
+    })) as AnthropicResponse
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    let parsedMessage = ''
-
-    try {
-      const parsed = JSON.parse(errorText) as {
-        error?: { message?: string }
-      }
-
-      parsedMessage = parsed.error?.message?.trim() || ''
-    } catch {
-      parsedMessage = ''
+    return JSON.parse(extractAnthropicText(data)) as T
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message)
     }
 
-    if (parsedMessage === 'invalid x-api-key') {
-      throw new Error(
-        'Invalid Anthropic API key. Update VITE_ANTHROPIC_API_KEY in .env.local and restart the dev server.'
-      )
-    }
-
-    throw new Error(parsedMessage || errorText)
+    throw error
   }
-
-  const data = (await response.json()) as AnthropicResponse
-
-  return JSON.parse(extractAnthropicText(data)) as T
 }
 
 function autoResizeTextarea(element: HTMLTextAreaElement) {
@@ -208,9 +163,11 @@ function getMilestoneStatusColor(status: GoalMilestone['status']) {
 }
 
 export function Vision() {
+  const navigate = useNavigate()
   const yearDescription = useAppStore((state) => state.yearDescription)
   const goals = useAppStore((state) => state.goals)
   const setYearDescription = useAppStore((state) => state.setYearDescription)
+  const replaceGoals = useAppStore((state) => state.replaceGoals)
   const addGoal = useAppStore((state) => state.addGoal)
   const removeGoal = useAppStore((state) => state.removeGoal)
   const updateGoal = useAppStore((state) => state.updateGoal)
@@ -250,20 +207,7 @@ export function Vision() {
   const [coachingStates, setCoachingStates] = useState<
     Record<string, GoalCoachingState>
   >({})
-  const [seasonPlan, setSeasonPlan] = useState<SeasonPlanItem[] | null>(null)
-  const [approvedPlanGoals, setApprovedPlanGoals] = useState<Record<string, boolean>>(
-    {}
-  )
-  const [isPlanningYear, setIsPlanningYear] = useState(false)
-  const [planError, setPlanError] = useState('')
-
-  const visiblePlan =
-    seasonPlan?.filter((item) => goals.some((goal) => goal.id === item.goalId)) ??
-    []
-
-  const approvedPlanCount = visiblePlan.filter(
-    (item) => approvedPlanGoals[item.goalId]
-  ).length
+  const hasAnyMilestones = goals.some((goal) => goal.milestones.length > 0)
 
   const setCoachingState = (
     goalId: string,
@@ -326,17 +270,13 @@ export function Vision() {
     try {
       const data = await fetchAnthropicJson<GenerateGoalsResponse>({
         system:
-          'You are a goal extraction assistant. The user wrote their ideal year in past tense. Extract 4-7 specific meaningful goals. For each goal infer a category from the domain it belongs to — Health & Fitness, Financial, Family, Career, Relationships, Learning, Spiritual, Creative, Travel, or Community. Only use categories genuinely present in the text. Return ONLY valid JSON, no markdown: { "goals": [{ "title": string, "category": string }] }',
+          'You are a goal extraction assistant. The user wrote their ideal year in past tense. Extract 4-7 specific meaningful goals. Categories must be inferred from what they actually wrote — do not use a fixed list. Only include categories genuinely present in the text. Return ONLY valid JSON with no markdown or explanation: { "goals": [{ "title": string, "category": string }] }',
         maxTokens: 1000,
         message: yearDescription,
       })
 
-      const seen = new Set(
-        goals.map(
-          (goal) =>
-            `${goal.title.toLowerCase().trim()}::${goal.category.toLowerCase().trim()}`
-        )
-      )
+      const seen = new Set<string>()
+      const nextGoals: Goal[] = []
 
       data.goals.forEach((item) => {
         const title = item.title.trim()
@@ -354,7 +294,7 @@ export function Vision() {
 
         seen.add(key)
 
-        addGoal({
+        nextGoals.push({
           id: createId('goal'),
           title,
           category,
@@ -365,6 +305,15 @@ export function Vision() {
           expanded: true,
         })
       })
+
+      replaceGoals(nextGoals)
+      setCoachingStates({})
+      setConfirmingDeleteGoalId(null)
+      setEditingGoalId(null)
+      setEditingGoalTitle('')
+      setEditingCategoryGoalId(null)
+      setEditingCategoryText('')
+      setEditingMilestone(null)
     } catch (error) {
       setGenerationError(
         error instanceof Error
@@ -392,7 +341,7 @@ export function Vision() {
       if (!category) {
         const data = await fetchAnthropicJson<InferCategoryResponse>({
           system:
-            'Given a goal title, choose the single best category from Health & Fitness, Financial, Family, Career, Relationships, Learning, Spiritual, Creative, Travel, or Community. Return ONLY valid JSON: { "category": string }',
+            'Given a goal title, return a single category label. Return ONLY valid JSON: { "category": string }',
           maxTokens: 150,
           message: title,
         })
@@ -441,6 +390,7 @@ export function Vision() {
       description: '',
       status: 'not_started',
       seasonKey: null,
+      weeklyGoals: [],
     })
 
     setNewMilestoneTitles((current) => ({ ...current, [goalId]: '' }))
@@ -636,6 +586,7 @@ Return ONLY valid JSON: { "milestones": [{ "title": string, "description": strin
         description: milestone.description.trim(),
         status: 'not_started',
         seasonKey: null,
+        weeklyGoals: [],
       })
     })
 
@@ -646,67 +597,6 @@ Return ONLY valid JSON: { "milestones": [{ "title": string, "description": strin
       skippedQuestions: false,
       error: '',
     }))
-  }
-
-  const handlePlanYear = async () => {
-    if (goals.length === 0) {
-      return
-    }
-
-    setIsPlanningYear(true)
-    setPlanError('')
-
-    try {
-      const data = await fetchAnthropicJson<SeasonPlanResponse>({
-        system:
-          'You are an annual planning assistant. Given a list of goals and 4 seasons (Spring Jan-Mar, Summer Apr-Jun, Fall Jul-Sep, Winter Oct-Dec), assign each goal to the most appropriate season based on natural timing, momentum, and dependencies. Consider that Spring is for building foundations, Summer for peak effort, Fall for harvesting results, Winter for reflection. Return ONLY valid JSON: { "plan": [{ "goalId": string, "seasonKey": "spring"|"summer"|"fall"|"winter", "reason": string }] }',
-        maxTokens: 1000,
-        message: JSON.stringify(
-          goals.map((goal) => ({
-            id: goal.id,
-            title: goal.title,
-            category: goal.category,
-          }))
-        ),
-      })
-
-      const nextPlan = data.plan.filter((item) =>
-        goals.some((goal) => goal.id === item.goalId)
-      )
-
-      setSeasonPlan(nextPlan)
-      setApprovedPlanGoals(
-        Object.fromEntries(nextPlan.map((item) => [item.goalId, true]))
-      )
-    } catch (error) {
-      setPlanError(
-        error instanceof Error
-          ? error.message
-          : 'Could not plan your year right now — try again'
-      )
-    } finally {
-      setIsPlanningYear(false)
-    }
-  }
-
-  const handleApplyPlan = () => {
-    visiblePlan.forEach((item) => {
-      if (!approvedPlanGoals[item.goalId]) {
-        return
-      }
-
-      const goal = goals.find((entry) => entry.id === item.goalId)
-
-      if (!goal) {
-        return
-      }
-
-      updateGoal(goal.id, { seasonKey: item.seasonKey })
-
-      goal.milestones.forEach((milestone) => {
-        assignMilestoneToSeason(goal.id, milestone.id, item.seasonKey)
-      })
-    })
   }
 
   return (
@@ -788,33 +678,6 @@ Return ONLY valid JSON: { "milestones": [{ "title": string, "description": strin
           </div>
         )}
 
-        {goals.length > 0 && (
-          <div className="mt-4">
-            <button
-              onClick={handlePlanYear}
-              disabled={isPlanningYear}
-              className="flex w-full items-center justify-center gap-2 rounded-[16px] px-4 py-3 text-sm font-black transition-all duration-200 disabled:cursor-not-allowed"
-              style={{
-                background: 'rgba(168,158,245,0.1)',
-                border: '1px solid rgba(168,158,245,0.3)',
-                color: '#A89EF5',
-                opacity: isPlanningYear ? 0.8 : 1,
-              }}
-            >
-              {isPlanningYear && <Loader2 size={16} className="animate-spin" />}
-              {isPlanningYear ? 'Planning your year...' : 'Plan my year with AI →'}
-            </button>
-
-            {planError && (
-              <div
-                className="mt-3 rounded-[16px] px-4 py-3 text-sm"
-                style={ERROR_BANNER_STYLES}
-              >
-                {planError}
-              </div>
-            )}
-          </div>
-        )}
       </section>
 
       {goals.length > 0 && (
@@ -1515,152 +1378,50 @@ Return ONLY valid JSON: { "milestones": [{ "title": string, "description": strin
               </article>
             )
           })}
-        </section>
-      )}
 
-      {visiblePlan.length > 0 && (
-        <section
-          className="rounded-[24px] p-6 transition-all duration-200"
-          style={CARD_STYLES}
-        >
-          <div>
-            <h2 className="text-xl font-black" style={{ color: '#F0EFEB' }}>
-              Plan my year result
-            </h2>
-            <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.36)' }}>
-              Review each season, keep the assignments you like, then apply the plan.
-            </p>
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-            {SEASON_ORDER.map((seasonKey) => {
-              const season = SEASONS[seasonKey]
-              const seasonItems = visiblePlan.filter(
-                (item) => item.seasonKey === seasonKey
-              )
-
-              return (
-                <div
-                  key={seasonKey}
-                  className="rounded-[20px] p-4"
-                  style={{
-                    background: '#202020',
-                    border: `1px solid ${season.color}26`,
-                  }}
+          {hasAnyMilestones ? (
+            <div
+              className="mt-6 flex items-center justify-between gap-4 rounded-[16px] px-6 py-5"
+              style={{
+                background: 'rgba(170,223,79,0.06)',
+                border: '1px solid rgba(170,223,79,0.2)',
+              }}
+            >
+              <div>
+                <p
+                  className="text-[15px] font-black"
+                  style={{ color: '#F0EFEB' }}
                 >
-                  <div className="flex items-center gap-2">
-                    <span style={{ fontSize: 18 }}>{season.emoji}</span>
-                    <div>
-                      <p className="text-sm font-black" style={{ color: season.color }}>
-                        {season.label}
-                      </p>
-                      <p
-                        className="text-[11px]"
-                        style={{ color: 'rgba(255,255,255,0.28)' }}
-                      >
-                        {season.dateRange}
-                      </p>
-                    </div>
-                  </div>
+                  Your goals are ready
+                </p>
+                <p
+                  className="mt-1 text-[13px]"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}
+                >
+                  Assign milestones to seasons to start executing
+                </p>
+              </div>
 
-                  <div className="mt-4 flex flex-col gap-2.5">
-                    {seasonItems.length === 0 ? (
-                      <p
-                        className="text-xs italic"
-                        style={{ color: 'rgba(255,255,255,0.28)' }}
-                      >
-                        No goals assigned here
-                      </p>
-                    ) : (
-                      seasonItems.map((item) => {
-                        const goal = goals.find((entry) => entry.id === item.goalId)
-
-                        if (!goal) {
-                          return null
-                        }
-
-                        const approved = approvedPlanGoals[item.goalId]
-
-                        return (
-                          <button
-                            key={item.goalId}
-                            onClick={() =>
-                              setApprovedPlanGoals((current) => ({
-                                ...current,
-                                [item.goalId]: !current[item.goalId],
-                              }))
-                            }
-                            className="rounded-[16px] px-3 py-3 text-left transition-all duration-200"
-                            style={{
-                              background: approved
-                                ? `${season.color}18`
-                                : 'rgba(255,255,255,0.03)',
-                              border: `1px solid ${approved ? `${season.color}40` : 'rgba(255,255,255,0.06)'}`,
-                            }}
-                          >
-                            <div className="flex items-start gap-3">
-                              <span
-                                className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full"
-                                style={{
-                                  background: approved ? season.color : 'transparent',
-                                  border: `1px solid ${approved ? season.color : 'rgba(255,255,255,0.16)'}`,
-                                  color: approved ? '#0F0F0F' : 'transparent',
-                                }}
-                              >
-                                <Check size={12} />
-                              </span>
-
-                              <div className="min-w-0">
-                                <p className="text-sm font-black" style={{ color: '#F0EFEB' }}>
-                                  {goal.title}
-                                </p>
-                                <p
-                                  className="mt-1 text-[11px] leading-relaxed"
-                                  style={{ color: 'rgba(255,255,255,0.36)' }}
-                                >
-                                  {item.reason}
-                                </p>
-                              </div>
-                            </div>
-                          </button>
-                        )
-                      })
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-            <button
-              onClick={handleApplyPlan}
-              disabled={approvedPlanCount === 0}
-              className="flex-1 rounded-[16px] px-4 py-3 text-sm font-black transition-all duration-200 disabled:cursor-not-allowed"
-              style={{
-                background:
-                  approvedPlanCount === 0 ? 'rgba(170,223,79,0.18)' : '#AADF4F',
-                color:
-                  approvedPlanCount === 0 ? 'rgba(15,15,15,0.55)' : '#0F0F0F',
-                opacity: approvedPlanCount === 0 ? 0.7 : 1,
-              }}
+              <button
+                onClick={() => navigate('/seasons')}
+                className="flex-shrink-0 rounded-[10px] px-5 py-2.5 text-[13px] font-black transition-all duration-200"
+                style={{
+                  background: '#AADF4F',
+                  color: '#0F0F0F',
+                }}
+              >
+                Plan my seasons →
+              </button>
+            </div>
+          ) : (
+            <p
+              className="mt-4 text-center text-[13px] italic"
+              style={{ color: 'rgba(255,255,255,0.3)' }}
             >
-              Apply this plan
-            </button>
-
-            <button
-              onClick={handlePlanYear}
-              disabled={isPlanningYear}
-              className="rounded-[16px] px-4 py-3 text-sm font-black transition-all duration-200 disabled:cursor-not-allowed"
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.12)',
-                color: 'rgba(255,255,255,0.5)',
-              }}
-            >
-              Redo plan
-            </button>
-          </div>
+              Add milestones to your goals first — then you can plan which
+              season to work on each one.
+            </p>
+          )}
         </section>
       )}
 
