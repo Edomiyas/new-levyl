@@ -65,6 +65,11 @@ export const SEASONS: Record<
 
 export const SEASON_ORDER: SeasonKey[] = ['spring', 'summer', 'fall', 'winter']
 
+export function getNextSeasonKey(current: SeasonKey): SeasonKey {
+  const currentIndex = SEASON_ORDER.indexOf(current)
+  return SEASON_ORDER[(currentIndex + 1) % SEASON_ORDER.length]
+}
+
 export function getCategoryColor(category: string): string {
   let hash = 0
 

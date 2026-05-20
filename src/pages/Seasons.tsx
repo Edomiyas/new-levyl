@@ -1,20 +1,13 @@
 import { useState } from 'react'
 import { CheckCircle2, Circle, Plus, X, ChevronLeft, Check } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
-import { SEASONS, SEASON_ORDER } from '../lib/constants'
+import { getNextSeasonKey, SEASONS, SEASON_ORDER } from '../lib/constants'
 import {
   getSeasonGoalGroups,
   getSeasonGoalMilestones,
   type SeasonGoalMilestone,
 } from '../lib/goalMilestones'
 import type { SeasonKey, WeeklyGoal } from '../types'
-
-const NEXT_SEASON: Record<SeasonKey, SeasonKey> = {
-  spring: 'summer',
-  summer: 'fall',
-  fall: 'winter',
-  winter: 'spring',
-}
 
 // ─── Add Weekly Goal Modal ─────────────────────────────────────────────────────
 
@@ -181,7 +174,7 @@ function MilestoneDetail({
   onBack: () => void
   onAddGoal: (weekHint: number | null) => void
 }) {
-  const { toggleGoalDone } = useAppStore()
+  const { toggleGoalDone, updateMilestoneStatus } = useAppStore()
 
   const doneCount = milestone.weeklyGoals.filter((g) => g.done).length
   const totalCount = milestone.weeklyGoals.length
@@ -193,6 +186,39 @@ function MilestoneDetail({
     goalsByWeek[g.weekNumber].push(g)
   })
   const usedWeeks = Object.keys(goalsByWeek).map(Number).sort((a, b) => a - b)
+  const statusOptions: Array<{
+    value: SeasonGoalMilestone['status']
+    label: string
+    activeLabel: string
+    activeBackground: string
+    activeColor: string
+    activeBorder: string
+  }> = [
+    {
+      value: 'not_started',
+      label: 'Not started',
+      activeLabel: 'Not started',
+      activeBackground: 'rgba(255,255,255,0.06)',
+      activeColor: 'rgba(255,255,255,0.72)',
+      activeBorder: 'rgba(255,255,255,0.14)',
+    },
+    {
+      value: 'active',
+      label: 'In progress',
+      activeLabel: 'In progress',
+      activeBackground: 'rgba(170,223,79,0.1)',
+      activeColor: '#AADF4F',
+      activeBorder: 'rgba(170,223,79,0.2)',
+    },
+    {
+      value: 'done',
+      label: 'Complete',
+      activeLabel: 'Complete',
+      activeBackground: 'rgba(93,202,165,0.1)',
+      activeColor: '#5DCAA5',
+      activeBorder: 'rgba(93,202,165,0.2)',
+    },
+  ]
 
   return (
     <div className="flex flex-col gap-4">
@@ -247,6 +273,47 @@ function MilestoneDetail({
               </p>
             )}
           </div>
+        </div>
+      </div>
+
+      <div
+        className="rounded-xl p-4"
+        style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <p className="text-[11px] font-black tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.36)' }}>
+          STATUS
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {statusOptions.map((option) => {
+            const isActive = milestone.status === option.value
+
+            return (
+              <button
+                key={option.value}
+                onClick={() =>
+                  updateMilestoneStatus(milestone.goalId, milestone.id, option.value)
+                }
+                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black transition-all"
+                style={{
+                  background: isActive
+                    ? option.activeBackground
+                    : 'rgba(255,255,255,0.03)',
+                  color: isActive ? option.activeColor : 'rgba(255,255,255,0.38)',
+                  border: `1px solid ${
+                    isActive ? option.activeBorder : 'rgba(255,255,255,0.06)'
+                  }`,
+                }}
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{
+                    background: isActive ? option.activeColor : 'rgba(255,255,255,0.18)',
+                  }}
+                />
+                {isActive ? option.activeLabel : option.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -416,7 +483,14 @@ function MilestoneDetail({
 // ─── Seasons Page ──────────────────────────────────────────────────────────────
 
 export function Seasons() {
-  const { user, seasons, goals, addWeeklyGoal } = useAppStore()
+  const {
+    user,
+    seasons,
+    goals,
+    addWeeklyGoal,
+    updateMilestoneStatus,
+    assignMilestoneToSeason,
+  } = useAppStore()
   const [activeTab, setActiveTab] = useState<SeasonKey>(user.currentSeason)
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null)
   const [showAddGoal, setShowAddGoal] = useState(false)
@@ -428,7 +502,7 @@ export function Seasons() {
   const seasonMilestones = getSeasonGoalMilestones(goals, activeTab)
   const isOverdue = activeSeason.status === 'overdue'
   const unresolvedCount = seasonMilestones.filter((m) => m.status !== 'done').length
-  const nextSeasonKey = NEXT_SEASON[activeTab]
+  const nextSeasonKey = getNextSeasonKey(activeTab)
   const nextCfg = SEASONS[nextSeasonKey]
 
   const selectedMilestone = selectedMilestoneId
@@ -725,12 +799,22 @@ export function Seasons() {
                           {isUnresolved && (
                             <div className="flex gap-2 mt-1.5 ml-11">
                               <button
+                                onClick={() =>
+                                  updateMilestoneStatus(group.goalId, ms.id, 'done')
+                                }
                                 className="text-[11px] font-black px-3 py-1.5 rounded-lg transition-all"
                                 style={{ background: 'rgba(93,202,165,0.12)', color: '#5DCAA5' }}
                               >
                                 ✓ Mark complete
                               </button>
                               <button
+                                onClick={() =>
+                                  assignMilestoneToSeason(
+                                    group.goalId,
+                                    ms.id,
+                                    getNextSeasonKey(activeTab)
+                                  )
+                                }
                                 className="text-[11px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all"
                                 style={{ background: 'rgba(245,197,66,0.12)', color: '#F5C542' }}
                               >

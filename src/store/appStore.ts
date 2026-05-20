@@ -30,6 +30,11 @@ interface AppState {
     milestoneId: string,
     updates: Partial<GoalMilestone>
   ) => void
+  updateMilestoneStatus: (
+    goalId: string,
+    milestoneId: string,
+    status: GoalMilestone['status']
+  ) => void
   assignMilestoneToSeason: (
     goalId: string,
     milestoneId: string,
@@ -222,6 +227,25 @@ export const useAppStore = create<AppState>((set) => ({
                 milestones: goal.milestones.map((milestone) =>
                   milestone.id === milestoneId
                     ? { ...milestone, ...updates }
+                    : milestone
+                ),
+              }
+            : goal
+        )
+      )
+    ),
+
+  updateMilestoneStatus: (goalId, milestoneId, status) =>
+    set((state) =>
+      syncGoals(
+        state,
+        state.goals.map((goal) =>
+          goal.id === goalId
+            ? {
+                ...goal,
+                milestones: goal.milestones.map((milestone) =>
+                  milestone.id === milestoneId
+                    ? { ...milestone, status }
                     : milestone
                 ),
               }
