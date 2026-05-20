@@ -65,9 +65,57 @@ export const SEASONS: Record<
 
 export const SEASON_ORDER: SeasonKey[] = ['spring', 'summer', 'fall', 'winter']
 
+export const SEASON_DATE_RANGES: Record<SeasonKey, { start: string; end: string }> = {
+  spring: { start: '2025-01-01', end: '2025-03-31' },
+  summer: { start: '2025-04-01', end: '2025-06-30' },
+  fall: { start: '2025-07-01', end: '2025-09-30' },
+  winter: { start: '2025-10-01', end: '2025-12-31' },
+}
+
 export function getNextSeasonKey(current: SeasonKey): SeasonKey {
   const currentIndex = SEASON_ORDER.indexOf(current)
   return SEASON_ORDER[(currentIndex + 1) % SEASON_ORDER.length]
+}
+
+export function getCurrentSeasonKey(): SeasonKey {
+  const now = new Date()
+
+  for (const [key, range] of Object.entries(SEASON_DATE_RANGES)) {
+    const start = new Date(range.start)
+    const end = new Date(range.end)
+
+    if (now >= start && now <= end) {
+      return key as SeasonKey
+    }
+  }
+
+  return 'summer'
+}
+
+export function getCurrentWeekInSeason(seasonKey: SeasonKey): number {
+  const range = SEASON_DATE_RANGES[seasonKey]
+  const start = new Date(range.start)
+  const now = new Date()
+  const diffMs = now.getTime() - start.getTime()
+  const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1
+
+  return Math.min(Math.max(diffWeeks, 1), 12)
+}
+
+export function getSeasonStatus(seasonKey: SeasonKey): 'done' | 'current' | 'upcoming' {
+  const current = getCurrentSeasonKey()
+  const currentIdx = SEASON_ORDER.indexOf(current)
+  const thisIdx = SEASON_ORDER.indexOf(seasonKey)
+
+  if (thisIdx < currentIdx) {
+    return 'done'
+  }
+
+  if (thisIdx === currentIdx) {
+    return 'current'
+  }
+
+  return 'upcoming'
 }
 
 export function getCategoryColor(category: string): string {

@@ -1,4 +1,10 @@
 import { create } from 'zustand'
+import {
+  getCurrentSeasonKey,
+  getCurrentWeekInSeason,
+  getSeasonStatus,
+  SEASON_ORDER,
+} from '../lib/constants'
 import type {
   Badge,
   Goal,
@@ -47,32 +53,19 @@ const initialYearDescription =
 
 const initialGoals: Goal[] = []
 
-const initialSeasons: Season[] = [
-  {
-    key: 'spring',
-    status: 'done',
-    weeksDone: 12,
-    currentWeek: null,
-  },
-  {
-    key: 'summer',
-    status: 'overdue',
-    weeksDone: 3,
-    currentWeek: 4,
-  },
-  {
-    key: 'fall',
-    status: 'upcoming',
-    weeksDone: 0,
-    currentWeek: null,
-  },
-  {
-    key: 'winter',
-    status: 'upcoming',
-    weeksDone: 0,
-    currentWeek: null,
-  },
-]
+const initialCurrentSeason = getCurrentSeasonKey()
+
+const initialSeasons: Season[] = SEASON_ORDER.map((seasonKey) => {
+  const status = getSeasonStatus(seasonKey)
+  const currentWeek = getCurrentWeekInSeason(seasonKey)
+
+  return {
+    key: seasonKey,
+    status,
+    weeksDone: status === 'done' ? 12 : status === 'current' ? Math.max(currentWeek - 1, 0) : 0,
+    currentWeek,
+  }
+})
 
 const initialBadges: Badge[] = [
   { id: 'b1', icon: '🏋️', label: 'First lift', earned: true },
@@ -97,7 +90,7 @@ export const useAppStore = create<AppState>((set) => ({
   user: {
     id: 'user-1',
     name: 'Arsenic',
-    currentSeason: 'summer',
+    currentSeason: initialCurrentSeason,
     xp: 1240,
     level: 4,
     streak: 12,

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CheckCircle2, Circle, Zap, MessageSquare } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
-import { SEASONS } from '../lib/constants'
+import { getCurrentWeekInSeason, SEASONS } from '../lib/constants'
 import {
   getSeasonGoalMilestones,
   type SeasonGoalMilestone,
@@ -253,7 +253,7 @@ export function Today() {
   const [mood, setMood] = useState<number | null>(null)
 
   const currentSeason = seasons.find((s) => s.key === user.currentSeason)!
-  const week = currentSeason.currentWeek ?? 1
+  const week = getCurrentWeekInSeason(user.currentSeason)
   const currentSeasonMilestones = getSeasonGoalMilestones(goals, user.currentSeason)
 
   const jsDay = new Date().getDay()
@@ -523,7 +523,7 @@ export function Today() {
       <div className="flex-shrink-0 flex flex-col gap-4" style={{ width: 272 }}>
         <SprintStrip
           weeksDone={currentSeason.weeksDone}
-          currentWeek={currentSeason.currentWeek}
+          currentWeek={week}
           seasonKey={user.currentSeason}
         />
         <MilestoneHealthBars milestones={currentSeasonMilestones} />
