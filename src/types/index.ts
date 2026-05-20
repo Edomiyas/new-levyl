@@ -49,6 +49,12 @@ export interface WeeklyGoal {
   done: boolean
 }
 
+export interface MoodEntry {
+  date: string
+  emoji: string
+  note: string
+}
+
 export interface Badge {
   id: string
   icon: string

@@ -9,6 +9,7 @@ import type {
   Badge,
   Goal,
   GoalMilestone,
+  MoodEntry,
   Season,
   SeasonKey,
   User,
@@ -20,9 +21,11 @@ interface AppState {
   yearDescription: string
   goals: Goal[]
   seasons: Season[]
+  moodLog: MoodEntry[]
   badges: Badge[]
   toggleGoalDone: (goalId: string) => void
   addWeeklyGoal: (milestoneId: string, goal: WeeklyGoal) => void
+  logMood: (entry: MoodEntry) => void
   setYearDescription: (text: string) => void
   replaceGoals: (goals: Goal[]) => void
   addGoal: (goal: Goal) => void
@@ -75,6 +78,7 @@ const initialBadges: Badge[] = [
   { id: 'b5', icon: '🌸', label: 'Full bloom', earned: false },
   { id: 'b6', icon: '🏆', label: 'Season done', earned: false },
 ]
+const initialMoodLog: MoodEntry[] = []
 
 const syncGoals = (state: AppState, goals: Goal[]) => ({
   goals,
@@ -100,6 +104,7 @@ export const useAppStore = create<AppState>((set) => ({
   yearDescription: initialYearDescription,
   goals: initialGoals,
   seasons: initialSeasons,
+  moodLog: initialMoodLog,
   badges: initialBadges,
 
   toggleGoalDone: (goalId) =>
@@ -140,6 +145,14 @@ export const useAppStore = create<AppState>((set) => ({
         }))
       )
     ),
+
+  logMood: (entry) =>
+    set((state) => ({
+      moodLog: [
+        ...state.moodLog.filter((moodEntry) => moodEntry.date !== entry.date),
+        entry,
+      ].sort((a, b) => a.date.localeCompare(b.date)),
+    })),
 
   setYearDescription: (text) =>
     set((state) => syncYearDescription(state, text)),

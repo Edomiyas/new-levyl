@@ -20,6 +20,14 @@ const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 const XP_PER_GOAL = 50
 
+function toIsoDate(date: Date) {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
 // ─── Sprint Strip (sidebar) ──────────────────────────────────────────────────
 
 function SprintStrip({ weeksDone, currentWeek, seasonKey }: {
@@ -149,7 +157,13 @@ function MilestoneHealthBars({
 
 // ─── Mood Log (sidebar) ───────────────────────────────────────────────────────
 
-function MoodLog({ mood }: { mood: number | null }) {
+function MoodLog({
+  todayMood,
+  lastSevenDays,
+}: {
+  todayMood: typeof MOODS[number] | null
+  lastSevenDays: Array<{ date: string; label: string; emoji: string | null; isToday: boolean }>
+}) {
   const today = new Date()
   const dateShort = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
@@ -161,20 +175,16 @@ function MoodLog({ mood }: { mood: number | null }) {
       <p className="text-[10px] font-black tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.36)' }}>
         MOOD LOG
       </p>
-      {mood === null ? (
-        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>
-          Log your mood above ↑
-        </p>
-      ) : (
+      {todayMood ? (
         <div className="flex flex-col gap-2">
           <div
             className="flex items-center gap-2.5 p-2.5 rounded-lg"
             style={{ background: '#202020' }}
           >
-            <span style={{ fontSize: 20 }}>{MOODS[mood].emoji}</span>
+            <span style={{ fontSize: 20 }}>{todayMood.emoji}</span>
             <div>
               <p className="text-xs font-black" style={{ color: '#F0EFEB' }}>
-                {MOODS[mood].label}
+                {todayMood.label}
               </p>
               <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
                 {dateShort}
@@ -186,7 +196,32 @@ function MoodLog({ mood }: { mood: number | null }) {
             />
           </div>
         </div>
+      ) : (
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>
+          Log your mood above ↑
+        </p>
       )}
+      <div className="mt-3 flex flex-col gap-1.5">
+        {lastSevenDays.map((entry) => (
+          <div
+            key={entry.date}
+            className="flex items-center justify-between rounded-lg px-2.5 py-2"
+            style={{
+              background: entry.isToday ? 'rgba(170,223,79,0.08)' : '#202020',
+              border: `1px solid ${
+                entry.isToday ? 'rgba(170,223,79,0.18)' : 'rgba(255,255,255,0.04)'
+              }`,
+            }}
+          >
+            <span className="text-[10px] font-black" style={{ color: 'rgba(255,255,255,0.42)' }}>
+              {entry.label}
+            </span>
+            <span style={{ fontSize: 16, color: entry.emoji ? '#F0EFEB' : 'rgba(255,255,255,0.24)' }}>
+              {entry.emoji ?? '·'}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -249,12 +284,29 @@ function SundayReflection() {
 // ─── Today Page ──────────────────────────────────────────────────────────────
 
 export function Today() {
-  const { user, seasons, goals, toggleGoalDone } = useAppStore()
-  const [mood, setMood] = useState<number | null>(null)
+  const { user, seasons, goals, moodLog, toggleGoalDone, logMood } = useAppStore()
 
   const currentSeason = seasons.find((s) => s.key === user.currentSeason)!
   const week = getCurrentWeekInSeason(user.currentSeason)
   const currentSeasonMilestones = getSeasonGoalMilestones(goals, user.currentSeason)
+  const todayKey = toIsoDate(new Date())
+  const todayMoodEntry = moodLog.find((entry) => entry.date === todayKey) ?? null
+  const todayMood = todayMoodEntry
+    ? MOODS.find((moodOption) => moodOption.emoji === todayMoodEntry.emoji) ?? null
+    : null
+  const lastSevenDays = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date()
+    date.setDate(date.getDate() - (6 - index))
+    const isoDate = toIsoDate(date)
+    const entry = moodLog.find((moodEntry) => moodEntry.date === isoDate) ?? null
+
+    return {
+      date: isoDate,
+      label: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      emoji: entry?.emoji ?? null,
+      isToday: isoDate === todayKey,
+    }
+  })
 
   const jsDay = new Date().getDay()
   const dayIndex = jsDay === 0 ? 6 : jsDay - 1
@@ -304,18 +356,30 @@ export function Today() {
             {MOODS.map((m, i) => (
               <button
                 key={i}
-                onClick={() => setMood(i)}
+                onClick={() =>
+                  logMood({
+                    date: todayKey,
+                    emoji: m.emoji,
+                    note: '',
+                  })
+                }
                 className="flex flex-col items-center gap-1.5 py-3 rounded-xl flex-1 transition-all"
                 style={{
-                  background: mood === i ? 'rgba(170,223,79,0.12)' : '#202020',
-                  border: `1px solid ${mood === i ? 'rgba(170,223,79,0.45)' : 'rgba(255,255,255,0.04)'}`,
-                  transform: mood === i ? 'scale(1.04)' : 'scale(1)',
+                  background: todayMood?.emoji === m.emoji ? 'rgba(170,223,79,0.12)' : '#202020',
+                  border: `1px solid ${
+                    todayMood?.emoji === m.emoji
+                      ? 'rgba(170,223,79,0.45)'
+                      : 'rgba(255,255,255,0.04)'
+                  }`,
+                  transform: todayMood?.emoji === m.emoji ? 'scale(1.04)' : 'scale(1)',
                 }}
               >
                 <span style={{ fontSize: 24 }}>{m.emoji}</span>
                 <span
                   className="text-[10px] font-bold"
-                  style={{ color: mood === i ? '#AADF4F' : 'rgba(255,255,255,0.3)' }}
+                  style={{
+                    color: todayMood?.emoji === m.emoji ? '#AADF4F' : 'rgba(255,255,255,0.3)',
+                  }}
                 >
                   {m.label}
                 </span>
@@ -527,7 +591,7 @@ export function Today() {
           seasonKey={user.currentSeason}
         />
         <MilestoneHealthBars milestones={currentSeasonMilestones} />
-        <MoodLog mood={mood} />
+        <MoodLog todayMood={todayMood} lastSevenDays={lastSevenDays} />
         <SundayReflection />
       </div>
     </div>
