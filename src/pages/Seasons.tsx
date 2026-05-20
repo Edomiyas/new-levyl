@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { CheckCircle2, Circle, Plus, X, ChevronLeft, Check } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
-import { LIFE_AREAS, SEASONS, SEASON_ORDER } from '../lib/constants'
-import type { SeasonKey, Milestone, WeeklyGoal } from '../types'
+import { SEASONS, SEASON_ORDER } from '../lib/constants'
+import {
+  getSeasonGoalGroups,
+  getSeasonGoalMilestones,
+  type SeasonGoalMilestone,
+} from '../lib/goalMilestones'
+import type { SeasonKey, WeeklyGoal } from '../types'
 
 const NEXT_SEASON: Record<SeasonKey, SeasonKey> = {
   spring: 'summer',
@@ -170,14 +175,13 @@ function MilestoneDetail({
   onBack,
   onAddGoal,
 }: {
-  milestone: Milestone
+  milestone: SeasonGoalMilestone
   currentWeek: number | null
   seasonColor: string
   onBack: () => void
   onAddGoal: (weekHint: number | null) => void
 }) {
   const { toggleGoalDone } = useAppStore()
-  const area = LIFE_AREAS[milestone.lifeAreaKey]
 
   const doneCount = milestone.weeklyGoals.filter((g) => g.done).length
   const totalCount = milestone.weeklyGoals.length
@@ -208,9 +212,13 @@ function MilestoneDetail({
         <div className="flex items-start gap-3">
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: area.bg, fontSize: 18 }}
+            style={{
+              background: `${milestone.goalCategoryColor}1A`,
+              color: milestone.goalCategoryColor,
+              fontSize: 16,
+            }}
           >
-            {area.emoji}
+            ✦
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-base font-black leading-tight" style={{ color: '#F0EFEB' }}>
@@ -219,14 +227,25 @@ function MilestoneDetail({
             <div className="flex items-center gap-2 mt-1">
               <span
                 className="text-[10px] font-black px-2 py-0.5 rounded-full"
-                style={{ background: area.bg, color: area.color }}
+                style={{
+                  background: `${milestone.goalCategoryColor}1A`,
+                  color: milestone.goalCategoryColor,
+                }}
               >
-                {area.label}
+                {milestone.goalCategory}
               </span>
               <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.36)' }}>
                 {totalCount === 0 ? 'No tasks yet' : `${doneCount}/${totalCount} tasks done`}
               </span>
             </div>
+            <p className="text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.28)' }}>
+              {milestone.goalTitle}
+            </p>
+            {milestone.description && (
+              <p className="text-[12px] mt-2 leading-relaxed" style={{ color: 'rgba(255,255,255,0.42)' }}>
+                {milestone.description}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -397,7 +416,7 @@ function MilestoneDetail({
 // ─── Seasons Page ──────────────────────────────────────────────────────────────
 
 export function Seasons() {
-  const { user, seasons, addWeeklyGoal } = useAppStore()
+  const { user, seasons, goals, addWeeklyGoal } = useAppStore()
   const [activeTab, setActiveTab] = useState<SeasonKey>(user.currentSeason)
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null)
   const [showAddGoal, setShowAddGoal] = useState(false)
@@ -405,13 +424,15 @@ export function Seasons() {
 
   const activeSeason = seasons.find((s) => s.key === activeTab)!
   const cfg = SEASONS[activeTab]
+  const seasonGoalGroups = getSeasonGoalGroups(goals, activeTab)
+  const seasonMilestones = getSeasonGoalMilestones(goals, activeTab)
   const isOverdue = activeSeason.status === 'overdue'
-  const unresolvedCount = activeSeason.milestones.filter((m) => m.status !== 'done').length
+  const unresolvedCount = seasonMilestones.filter((m) => m.status !== 'done').length
   const nextSeasonKey = NEXT_SEASON[activeTab]
   const nextCfg = SEASONS[nextSeasonKey]
 
   const selectedMilestone = selectedMilestoneId
-    ? activeSeason.milestones.find((m) => m.id === selectedMilestoneId) ?? null
+    ? seasonMilestones.find((m) => m.id === selectedMilestoneId) ?? null
     : null
 
   // Order: current/overdue → upcoming → done
@@ -426,6 +447,9 @@ export function Seasons() {
 
   const primaryKey = sortedKeys[0]
   const secondaryKeys = sortedKeys.slice(1)
+  const getSeasonUnresolvedCount = (seasonKey: SeasonKey) =>
+    getSeasonGoalMilestones(goals, seasonKey).filter((milestone) => milestone.status !== 'done')
+      .length
 
   const handleTabChange = (key: SeasonKey) => {
     setActiveTab(key)
@@ -465,7 +489,7 @@ export function Seasons() {
           const season = seasons.find((s) => s.key === primaryKey)!
           const sCfg = SEASONS[primaryKey]
           const isActive = primaryKey === activeTab
-          const sUnresolved = season.milestones.filter((m) => m.status !== 'done').length
+          const sUnresolved = getSeasonUnresolvedCount(primaryKey)
           return (
             <button
               onClick={() => handleTabChange(primaryKey)}
@@ -569,9 +593,9 @@ export function Seasons() {
               {cfg.label} milestones
             </h2>
             <p className="text-sm" style={{ color: 'rgba(255,255,255,0.36)' }}>
-              {activeSeason.milestones.length} milestones this season
-            </p>
-          </div>
+                  {seasonMilestones.length} milestones this season
+                </p>
+              </div>
 
           {/* Overdue alert */}
           {isOverdue && unresolvedCount > 0 && (
@@ -592,7 +616,7 @@ export function Seasons() {
           )}
 
           {/* Empty state */}
-          {activeSeason.milestones.length === 0 ? (
+          {seasonMilestones.length === 0 ? (
             <div
               className="rounded-xl p-10 text-center"
               style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
@@ -604,95 +628,122 @@ export function Seasons() {
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {activeSeason.milestones.map((ms) => {
-                const area = LIFE_AREAS[ms.lifeAreaKey]
-                const isDone = ms.status === 'done'
-                const isUnresolved = !isDone && isOverdue
-                const isSelected = ms.id === selectedMilestoneId
-                const goalCount = ms.weeklyGoals.length
-                const doneGoals = ms.weeklyGoals.filter((g) => g.done).length
+            <div className="flex flex-col gap-4">
+              {seasonGoalGroups.map((group) => (
+                <div key={group.goalId}>
+                  <div className="mb-2 px-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-black" style={{ color: '#F0EFEB' }}>
+                        {group.goalTitle}
+                      </p>
+                      <span
+                        className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                        style={{
+                          background: `${group.categoryColor}18`,
+                          color: group.categoryColor,
+                        }}
+                      >
+                        {group.category}
+                      </span>
+                    </div>
+                    <p className="text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      {group.milestones.length} milestone{group.milestones.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
 
-                return (
-                  <div key={ms.id}>
-                    <button
-                      onClick={() => setSelectedMilestoneId(isSelected ? null : ms.id)}
-                      className="w-full rounded-xl p-4 text-left transition-all"
-                      style={{
-                        background: isSelected ? `${cfg.color}12` : '#181818',
-                        border: `1px solid ${isSelected ? cfg.color + '40' : 'rgba(255,255,255,0.07)'}`,
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          {isDone ? (
-                            <CheckCircle2 size={20} style={{ color: '#5DCAA5' }} />
-                          ) : ms.status === 'active' ? (
-                            <Circle size={20} style={{ color: cfg.color, opacity: 0.65 }} />
-                          ) : (
-                            <Circle size={20} style={{ color: 'rgba(255,255,255,0.2)' }} />
+                  <div className="flex flex-col gap-2">
+                    {group.milestones.map((ms) => {
+                      const isDone = ms.status === 'done'
+                      const isUnresolved = !isDone && isOverdue
+                      const isSelected = ms.id === selectedMilestoneId
+                      const goalCount = ms.weeklyGoals.length
+                      const doneGoals = ms.weeklyGoals.filter((g) => g.done).length
+
+                      return (
+                        <div key={ms.id}>
+                          <button
+                            onClick={() => setSelectedMilestoneId(isSelected ? null : ms.id)}
+                            className="w-full rounded-xl p-4 text-left transition-all"
+                            style={{
+                              background: isSelected ? `${cfg.color}12` : '#181818',
+                              border: `1px solid ${isSelected ? cfg.color + '40' : 'rgba(255,255,255,0.07)'}`,
+                            }}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 mt-0.5">
+                                {isDone ? (
+                                  <CheckCircle2 size={20} style={{ color: '#5DCAA5' }} />
+                                ) : ms.status === 'active' ? (
+                                  <Circle size={20} style={{ color: cfg.color, opacity: 0.65 }} />
+                                ) : (
+                                  <Circle size={20} style={{ color: 'rgba(255,255,255,0.2)' }} />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-3">
+                                  <p
+                                    className="text-sm font-bold"
+                                    style={{
+                                      color: isDone ? 'rgba(255,255,255,0.4)' : '#F0EFEB',
+                                      textDecoration: isDone ? 'line-through' : 'none',
+                                      textDecorationColor: 'rgba(255,255,255,0.2)',
+                                    }}
+                                  >
+                                    {ms.title}
+                                  </p>
+                                  <span
+                                    className="text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0"
+                                    style={{
+                                      background: `${group.categoryColor}18`,
+                                      color: group.categoryColor,
+                                    }}
+                                  >
+                                    {group.category}
+                                  </span>
+                                </div>
+                                {ms.description && (
+                                  <p className="text-[12px] mt-1 leading-relaxed" style={{ color: 'rgba(255,255,255,0.36)' }}>
+                                    {ms.description}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-3 mt-2">
+                                  {goalCount > 0 && (
+                                    <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                                      {doneGoals}/{goalCount} tasks
+                                    </span>
+                                  )}
+                                  {goalCount === 0 && !isDone && (
+                                    <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                                      No tasks yet — click to add
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+
+                          {isUnresolved && (
+                            <div className="flex gap-2 mt-1.5 ml-11">
+                              <button
+                                className="text-[11px] font-black px-3 py-1.5 rounded-lg transition-all"
+                                style={{ background: 'rgba(93,202,165,0.12)', color: '#5DCAA5' }}
+                              >
+                                ✓ Mark complete
+                              </button>
+                              <button
+                                className="text-[11px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all"
+                                style={{ background: 'rgba(245,197,66,0.12)', color: '#F5C542' }}
+                              >
+                                → Move to {nextCfg.label}
+                              </button>
+                            </div>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-3">
-                            <p
-                              className="text-sm font-bold"
-                              style={{
-                                color: isDone ? 'rgba(255,255,255,0.4)' : '#F0EFEB',
-                                textDecoration: isDone ? 'line-through' : 'none',
-                                textDecorationColor: 'rgba(255,255,255,0.2)',
-                              }}
-                            >
-                              {ms.title}
-                            </p>
-                            <span
-                              className="text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0"
-                              style={{ background: area.bg, color: area.color }}
-                            >
-                              {area.label}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 mt-1">
-                            {ms.statusNote && (
-                              <p className="text-[12px]" style={{ color: ms.atRisk ? '#F5C542' : 'rgba(255,255,255,0.36)' }}>
-                                {ms.statusNote}{ms.atRisk ? ' ⚠️' : ''}
-                              </p>
-                            )}
-                            {goalCount > 0 && (
-                              <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                                {doneGoals}/{goalCount} tasks
-                              </span>
-                            )}
-                            {goalCount === 0 && !isDone && (
-                              <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
-                                No tasks yet — click to add
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Overdue action buttons */}
-                    {isUnresolved && (
-                      <div className="flex gap-2 mt-1.5 ml-11">
-                        <button
-                          className="text-[11px] font-black px-3 py-1.5 rounded-lg transition-all"
-                          style={{ background: 'rgba(93,202,165,0.12)', color: '#5DCAA5' }}
-                        >
-                          ✓ Mark complete
-                        </button>
-                        <button
-                          className="text-[11px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all"
-                          style={{ background: 'rgba(245,197,66,0.12)', color: '#F5C542' }}
-                        >
-                          → Move to {nextCfg.label}
-                        </button>
-                      </div>
-                    )}
+                      )
+                    })}
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -760,7 +811,7 @@ export function Seasons() {
               </div>
 
               {/* Hint if milestones have no tasks */}
-              {activeSeason.milestones.some((m) => m.weeklyGoals.length === 0 && m.status !== 'done') && (
+              {seasonMilestones.some((m) => m.weeklyGoals.length === 0 && m.status !== 'done') && (
                 <div
                   className="rounded-xl p-4 flex items-start gap-3"
                   style={{ background: `${cfg.color}08`, border: `1px solid ${cfg.color}20` }}

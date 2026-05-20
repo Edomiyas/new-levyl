@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { CheckCircle2, Circle, Zap, MessageSquare } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
-import { LIFE_AREAS, SEASONS } from '../lib/constants'
+import { SEASONS } from '../lib/constants'
+import {
+  getSeasonGoalMilestones,
+  type SeasonGoalMilestone,
+} from '../lib/goalMilestones'
+import type { SeasonKey } from '../types'
 
 const MOODS = [
   { emoji: '😴', label: 'Low' },
@@ -20,7 +25,7 @@ const XP_PER_GOAL = 50
 function SprintStrip({ weeksDone, currentWeek, seasonKey }: {
   weeksDone: number
   currentWeek: number | null
-  seasonKey: string
+  seasonKey: SeasonKey
 }) {
   const cfg = SEASONS[seasonKey as keyof typeof SEASONS]
 
@@ -74,7 +79,14 @@ function SprintStrip({ weeksDone, currentWeek, seasonKey }: {
 
 // ─── Milestone Health Bars (sidebar) ────────────────────────────────────────
 
-function MilestoneHealthBars({ milestones }: { milestones: { id: string; lifeAreaKey: string; title: string; weeklyGoals: { done: boolean }[] }[] }) {
+function MilestoneHealthBars({
+  milestones,
+}: {
+  milestones: Pick<
+    SeasonGoalMilestone,
+    'id' | 'title' | 'goalCategory' | 'goalCategoryColor' | 'weeklyGoals'
+  >[]
+}) {
   const active = milestones.filter((m) => m.weeklyGoals.length > 0)
   if (active.length === 0) return null
 
@@ -88,7 +100,6 @@ function MilestoneHealthBars({ milestones }: { milestones: { id: string; lifeAre
       </p>
       <div className="flex flex-col gap-2.5">
         {active.map((ms) => {
-          const area = LIFE_AREAS[ms.lifeAreaKey as keyof typeof LIFE_AREAS]
           const done = ms.weeklyGoals.filter((g) => g.done).length
           const total = ms.weeklyGoals.length
           const pct = total > 0 ? Math.round((done / total) * 100) : 0
@@ -97,7 +108,10 @@ function MilestoneHealthBars({ milestones }: { milestones: { id: string; lifeAre
             <div key={ms.id}>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span style={{ fontSize: 11 }}>{area.emoji}</span>
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ background: ms.goalCategoryColor }}
+                  />
                   <span
                     className="text-[11px] font-bold truncate"
                     style={{ color: 'rgba(255,255,255,0.55)' }}
@@ -106,17 +120,23 @@ function MilestoneHealthBars({ milestones }: { milestones: { id: string; lifeAre
                     {ms.title}
                   </span>
                 </div>
-                <span className="text-[10px] font-black flex-shrink-0 ml-2" style={{ color: area.color }}>
+                <span
+                  className="text-[10px] font-black flex-shrink-0 ml-2"
+                  style={{ color: ms.goalCategoryColor }}
+                >
                   {pct}%
                 </span>
               </div>
+              <p className="text-[10px] mb-1.5" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                {ms.goalCategory}
+              </p>
               <div
                 className="h-1.5 rounded-full overflow-hidden"
                 style={{ background: 'rgba(255,255,255,0.06)' }}
               >
                 <div
                   className="h-full rounded-full transition-all"
-                  style={{ width: `${pct}%`, background: area.color }}
+                  style={{ width: `${pct}%`, background: ms.goalCategoryColor }}
                 />
               </div>
             </div>
@@ -229,16 +249,17 @@ function SundayReflection() {
 // ─── Today Page ──────────────────────────────────────────────────────────────
 
 export function Today() {
-  const { user, seasons, toggleGoalDone } = useAppStore()
+  const { user, seasons, goals, toggleGoalDone } = useAppStore()
   const [mood, setMood] = useState<number | null>(null)
 
   const currentSeason = seasons.find((s) => s.key === user.currentSeason)!
   const week = currentSeason.currentWeek ?? 1
+  const currentSeasonMilestones = getSeasonGoalMilestones(goals, user.currentSeason)
 
   const jsDay = new Date().getDay()
   const dayIndex = jsDay === 0 ? 6 : jsDay - 1
 
-  const activeMilestones = currentSeason.milestones.filter(
+  const activeMilestones = currentSeasonMilestones.filter(
     (m) => m.weeklyGoals.some((g) => g.weekNumber === week)
   )
 
@@ -371,7 +392,6 @@ export function Today() {
         ) : (
           <div className="flex flex-col gap-4">
             {activeMilestones.map((ms) => {
-              const area = LIFE_AREAS[ms.lifeAreaKey]
               const weekGoals = ms.weeklyGoals.filter((g) => g.weekNumber === week)
               if (weekGoals.length === 0) return null
 
@@ -387,25 +407,38 @@ export function Today() {
                   {/* Milestone header strip */}
                   <div
                     className="px-4 py-3 flex items-center gap-3"
-                    style={{ background: area.bg }}
+                    style={{ background: `${ms.goalCategoryColor}12` }}
                   >
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${area.color}22`, fontSize: 15 }}
+                      style={{
+                        background: `${ms.goalCategoryColor}22`,
+                        color: ms.goalCategoryColor,
+                        fontSize: 15,
+                      }}
                     >
-                      {area.emoji}
+                      ✦
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold truncate" style={{ color: '#F0EFEB' }}>
                         {ms.title}
                       </p>
-                      <p className="text-[11px] font-bold mt-0.5" style={{ color: area.color }}>
-                        {area.label} · {pct}% this week
+                      <p
+                        className="text-[11px] font-bold mt-0.5"
+                        style={{ color: ms.goalCategoryColor }}
+                      >
+                        {ms.goalCategory} · {pct}% this week
+                      </p>
+                      <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        {ms.goalTitle}
                       </p>
                     </div>
                     <div
                       className="text-xs font-black px-2.5 py-1 rounded-full flex-shrink-0"
-                      style={{ background: `${area.color}25`, color: area.color }}
+                      style={{
+                        background: `${ms.goalCategoryColor}25`,
+                        color: ms.goalCategoryColor,
+                      }}
                     >
                       {done}/{weekGoals.length}
                     </div>
@@ -493,7 +526,7 @@ export function Today() {
           currentWeek={currentSeason.currentWeek}
           seasonKey={user.currentSeason}
         />
-        <MilestoneHealthBars milestones={currentSeason.milestones} />
+        <MilestoneHealthBars milestones={currentSeasonMilestones} />
         <MoodLog mood={mood} />
         <SundayReflection />
       </div>

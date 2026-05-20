@@ -136,8 +136,20 @@ function StatCard({
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export function Dashboard() {
-  const { user, seasons, badges } = useAppStore()
-  const currentSeason = seasons.find((s) => s.key === user.currentSeason)!
+  const { user, seasons, goals, badges } = useAppStore()
+  const allMilestones = goals.flatMap((goal) => goal.milestones)
+  const doneMilestonesCount = allMilestones.filter(
+    (milestone) => milestone.status === 'done'
+  ).length
+  const activeMilestonesCount = allMilestones.filter(
+    (milestone) => milestone.status === 'active'
+  ).length
+  const plannedGoalsCount = goals.filter((goal) => goal.milestones.length > 0).length
+  const categoryCount = new Set(
+    goals
+      .map((goal) => goal.category.trim())
+      .filter((category) => category.length > 0)
+  ).size
 
   const xpToNext = 2000
   const xpPct = Math.min(100, Math.round((user.xp / xpToNext) * 100))
@@ -151,8 +163,10 @@ export function Dashboard() {
     family: 50,
   }
 
-  const overallProgress = 62
-  const activeGoalsCount = 14
+  const overallProgress =
+    allMilestones.length === 0
+      ? 0
+      : Math.round((doneMilestonesCount / allMilestones.length) * 100)
 
   const earnedBadges = badges.filter((b) => b.earned).length
 
@@ -174,7 +188,11 @@ export function Dashboard() {
         <StatCard
           value={`${overallProgress}%`}
           label="Overall progress"
-          subtext="↑ 8% from last season"
+          subtext={
+            allMilestones.length === 0
+              ? 'No milestones yet'
+              : `${doneMilestonesCount}/${allMilestones.length} milestones complete`
+          }
           color="#AADF4F"
         />
         <StatCard
@@ -184,9 +202,13 @@ export function Dashboard() {
           color="#F5C542"
         />
         <StatCard
-          value={`${activeGoalsCount}`}
+          value={`${plannedGoalsCount}`}
           label="Active goals"
-          subtext="Across 6 life areas"
+          subtext={
+            categoryCount === 0
+              ? 'Add goals to get started'
+              : `${categoryCount} categor${categoryCount === 1 ? 'y' : 'ies'} in motion`
+          }
           color="#5DCAA5"
         />
         <StatCard
@@ -341,12 +363,9 @@ export function Dashboard() {
             ([key, pct]) => {
               const area = LIFE_AREAS[key]
               const isLow = pct < 25
-              const activeCount = currentSeason.milestones.filter(
-                (m) => m.lifeAreaKey === key && m.status === 'active'
-              ).length
               const subtext = isLow
                 ? 'Needs focus'
-                : `${activeCount} active goal${activeCount !== 1 ? 's' : ''}`
+                : `${activeMilestonesCount} active milestone${activeMilestonesCount !== 1 ? 's' : ''}`
 
               return (
                 <ArcRing
